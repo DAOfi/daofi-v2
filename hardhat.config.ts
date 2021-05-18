@@ -8,7 +8,7 @@ export default {
   paths: {
     artifacts: "./build",
   },
-  solidity: "0.7.4",
+  solidity: "0.7.6",
   settings: {
     evmVersion: "istanbul",
     optimizer: {
