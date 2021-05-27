@@ -3,7 +3,7 @@ pragma solidity =0.7.6;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721Burnable.sol";
 import 'hardhat/console.sol';
 import './interfaces/IDAOfiV2Factory.sol';
 import './interfaces/IDAOfiV2Pair.sol';
@@ -14,13 +14,13 @@ contract ProxyRegistry {
     mapping(address => OwnableDelegateProxy) public proxies;
 }
 
-contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
+contract DAOfiV2Pair is IDAOfiV2Pair, ERC721Burnable {
     using Strings for string;
     using SafeMath for *;
 
     uint32 private constant SLOPE_DENOM = 1000000; // slope = m / SLOPE_DENOM
     uint32 private constant MAX_N = 3; // y = mx^n, n <= MAX_N
-    uint32 private constant MAX_OWNER_FEE = 97; // 9.7%
+    uint32 private constant MAX_OWNER_FEE = 997; // 99.7%
 
     uint8 public constant platformFee = 3; // 0.3%
     address payable public constant platform = 0xAD10D4F9937D743cbEb1383B1D3A3AD15Ace75D6;
@@ -69,7 +69,9 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         uint32 _ownerFee
     ) ERC721(_name, _symbol) {
         require(keccak256(bytes(_baseTokenURI)) != keccak256(bytes("")), 'EMPTY_URI');
+        require(_proxyAddress != address(0), 'ZERO_PROXY_ADDRESS');
         require(_nftReserve > 0, 'ZERO_NFT_RESERVE');
+        require(_initX > 0, 'ZERO_INIT_X');
         require(_m > 0 && _m <= SLOPE_DENOM, 'INVALID_SLOPE_NUMERATOR');
         require(_n > 0 && _n <= MAX_N, 'INVALID_EXPONENT');
         require(_ownerFee <= MAX_OWNER_FEE, 'INVALID_OWNER_FEE');
