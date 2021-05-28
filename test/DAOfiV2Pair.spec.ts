@@ -84,6 +84,7 @@ describe('DAOfiV2Pair', () => {
   })
 
   it('will allow for any caller to close the market past signal deadline, or otherwise revert', async () => {
+    const wallet2 = (await ethers.getSigners())[1]
     pair = (await pairFixture(wallet, 'Test NFT', 'TNFT', 'https://test', 10, 1, 1e6, 1, 100)).pair
     // attempt close, no signal
     await expect(pair.close()).to.be.revertedWith('INVALID_DEADLINE')
@@ -92,8 +93,13 @@ describe('DAOfiV2Pair', () => {
       .to.emit(pair, 'SignalClose')
     // attempt close, deadline not expired
     await expect(pair.close()).to.be.revertedWith('INVALID_DEADLINE')
-    // successfully close
-    
+    // timeout
+    await ethers.provider.send('evm_increaseTime', [86400])
+    await ethers.provider.send('evm_mine', [])
+    // successfully close from any wallet
+    pair = await pair.connect(wallet2)
+    await expect(pair.close())
+      .to.emit(pair, 'Close')
   })
 
   it('buy', async () => {
