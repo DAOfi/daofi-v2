@@ -6,44 +6,94 @@ import { getXForPrice, expandTo18Decimals, expandToDecimals } from './shared/uti
 import { pairFixture, factoryFixture } from './shared/fixtures'
 
 const zero = ethers.BigNumber.from(0)
+const proxy = '0xf57b2c51ded3a29e6891aba85459d600256cf317'
 
 let factory: Contract
 let pair: Contract
 let wallet: SignerWithAddress
 
-describe('DAOfiV1Pair: reverts', () => {
+describe('DAOfiV2Pair', () => {
   beforeEach(async () => {
     wallet = (await ethers.getSigners())[0]
     const fixture = await factoryFixture()
     factory = fixture.factory
   })
 
-  it('constructor:', async () => {
+  it('reverts for any bad parameter given to constructor', async () => {
     const Pair = await ethers.getContractFactory("DAOfiV2Pair")
-     await expect(Pair.deploy(
-     )).to.be.reverted
-
+    await expect(Pair.deploy(
+      'Test NFT', 'TNFT', '', proxy, wallet.address, 10, 1, 1e6, 1, 100
+    )).to.be.revertedWith('EMPTY_URI')
+    await expect(Pair.deploy(
+      'Test NFT', 'TNFT', 'https://test', ethers.constants.AddressZero, wallet.address, 10, 1, 1e6, 1, 100
+    )).to.be.revertedWith('ZERO_PROXY_ADDRESS')
+    await expect(Pair.deploy(
+      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 0, 1, 1e6, 1, 100
+    )).to.be.revertedWith('ZERO_NFT_RESERVE')
+    await expect(Pair.deploy(
+      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 0, 1e6, 1, 100
+    )).to.be.revertedWith('ZERO_INIT_X')
+    await expect(Pair.deploy(
+      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 0, 1, 100
+    )).to.be.revertedWith('INVALID_M')
+    await expect(Pair.deploy(
+      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6 + 1, 1, 100
+    )).to.be.revertedWith('INVALID_M')
+    await expect(Pair.deploy(
+      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6, 0, 100
+    )).to.be.revertedWith('INVALID_N')
+    await expect(Pair.deploy(
+      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6, 4, 100
+    )).to.be.revertedWith('INVALID_N')
+    await expect(Pair.deploy(
+      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6, 1, 998
+    )).to.be.revertedWith('INVALID_OWNER_FEE')
   })
 
-  it('setPairOwner:', async () => {
-    // const wallet2 = (await ethers.getSigners())[1]
-    // const wallet3 = (await ethers.getSigners())[2]
-    // pair = (await pairFixture(wallet, 1e6, 1, 0)).pair
-    // // owner is the initial wallet in this case, switch wallet to test restriction
-    // pair = await pair.connect(wallet2)
-    // await expect(pair.setPairOwner(wallet3.address)).to.be.revertedWith('DAOfiV1: FORBIDDEN_PAIR_OWNER')
-    // // switch back to wallet1
-    // pair = await pair.connect(wallet)
-    // // invalid owner
-    // await expect(pair.setPairOwner('0x0')).to.be.reverted // DAOfiV1: INVALID_OWNER
+  it('will properly allow for switching pair owner and revert for bad params', async () => {
+    const wallet2 = (await ethers.getSigners())[1]
+    const wallet3 = (await ethers.getSigners())[2]
+    pair = (await pairFixture(wallet, 'Test NFT', 'TNFT', 'https://test', 10, 1, 1e6, 1, 100)).pair
+    // owner is the initial wallet in this case, switch wallet to test restriction
+    pair = await pair.connect(wallet2)
+    await expect(pair.setPairOwner(wallet3.address)).to.be.revertedWith('FORBIDDEN_PAIR_OWNER')
+    // switch back to wallet1
+    pair = await pair.connect(wallet)
+    // invalid owner
+    await expect(pair.setPairOwner(ethers.constants.AddressZero)).to.be.revertedWith('INVALID_PAIR_OWNER')
+    // valid switch
+    await expect(pair.setPairOwner(wallet2.address))
+      .to.emit(pair, 'SetPairOwner')
+      .withArgs(wallet.address, wallet2.address)
   })
 
-  it('signalClose:', async () => {
-
+  it('will allow for pair owner to signal close and revert for invalid attempts', async () => {
+    const wallet2 = (await ethers.getSigners())[1]
+    pair = (await pairFixture(wallet, 'Test NFT', 'TNFT', 'https://test', 10, 1, 1e6, 1, 100)).pair
+    // owner is the initial wallet in this case, switch wallet to test restriction
+    pair = await pair.connect(wallet2)
+    await expect(pair.signalClose()).to.be.revertedWith('FORBIDDEN_SIGNAL_CLOSE')
+    // switch back to wallet1
+    pair = await pair.connect(wallet)
+    // success
+    await expect(pair.signalClose())
+      .to.emit(pair, 'SignalClose')
+    await expect(pair.closeDeadline()).to.not.equal(0)
+    // close already signaled
+    await expect(pair.signalClose()).to.be.revertedWith('CLOSE_ALREADY_SIGNALED')
   })
 
-  it('close', async () => {
-
+  it('will allow for any caller to close the market past signal deadline, or otherwise revert', async () => {
+    pair = (await pairFixture(wallet, 'Test NFT', 'TNFT', 'https://test', 10, 1, 1e6, 1, 100)).pair
+    // attempt close, no signal
+    await expect(pair.close()).to.be.revertedWith('INVALID_DEADLINE')
+    // successfully signal close
+    await expect(pair.signalClose())
+      .to.emit(pair, 'SignalClose')
+    // attempt close, deadline not expired
+    await expect(pair.close()).to.be.revertedWith('INVALID_DEADLINE')
+    // successfully close
+    
   })
 
   it('buy', async () => {

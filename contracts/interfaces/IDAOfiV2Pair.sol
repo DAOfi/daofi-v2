@@ -2,6 +2,7 @@
 pragma solidity =0.7.6;
 
 interface IDAOfiV2Pair {
+    event SetPairOwner(address indexed sender, address indexed newOwner);
     event SignalClose(address indexed sender, uint256 deadline);
     event Close(address indexed sender, uint256 amount);
     event WithdrawOwnerFees(address indexed sender, uint256 amount);

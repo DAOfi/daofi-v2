@@ -3,6 +3,8 @@ import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
 import DAOfiV2Pair from '../../build/contracts/DAOfiV2Pair.sol/DAOfiV2Pair.json'
 
+const proxy = '0xf57b2c51ded3a29e6891aba85459d600256cf317'
+
 interface FactoryFixture {
   factory: Contract
 }
@@ -30,9 +32,9 @@ export async function pairFixture(
 ): Promise<PairFixture> {
   const { factory } = await factoryFixture()
   await factory.createPair(
-    name, symbol, baseURI, '', wallet.address, reserve, x, m, n, ownerFee
+    name, symbol, baseURI, proxy, wallet.address, reserve, x, m, n, ownerFee
   )
-  const pairAddress = await factory.getPair(wallet.address, baseURI)
-  const pair = new Contract(pairAddress, JSON.stringify(DAOfiV2Pair.abi), wallet)
+  const pairAddress = await factory.getPair(wallet.address, symbol)
+  const pair = new Contract(pairAddress, DAOfiV2Pair.abi, wallet)
   return { factory, pair }
 }

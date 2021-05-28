@@ -47,7 +47,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721Burnable {
     * @dev Used to prevent reentrancy attack
     */
     modifier lock() {
-        require(unlocked == 1, 'DAOfiV1: LOCKED');
+        require(unlocked == 1, 'LOCKED');
         unlocked = 0;
         _;
         unlocked = 1;
@@ -72,13 +72,13 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721Burnable {
         require(_proxyAddress != address(0), 'ZERO_PROXY_ADDRESS');
         require(_nftReserve > 0, 'ZERO_NFT_RESERVE');
         require(_initX > 0, 'ZERO_INIT_X');
-        require(_m > 0 && _m <= SLOPE_DENOM, 'INVALID_SLOPE_NUMERATOR');
-        require(_n > 0 && _n <= MAX_N, 'INVALID_EXPONENT');
+        require(_m > 0 && _m <= SLOPE_DENOM, 'INVALID_M');
+        require(_n > 0 && _n <= MAX_N, 'INVALID_N');
         require(_ownerFee <= MAX_OWNER_FEE, 'INVALID_OWNER_FEE');
         _setBaseURI(_baseTokenURI);
         proxyRegistryAddress = _proxyAddress;
         pairOwner = _pairOwner;
-        x = _initX;
+        x = _initX * 1000; // allow for fraction of a % by expanding supply by 1000
         m = _m;
         n = _n;
     }
@@ -131,8 +131,9 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721Burnable {
     */
     function setPairOwner(address payable _nextOwner) external override {
         require(msg.sender == pairOwner, 'FORBIDDEN_PAIR_OWNER');
-        require(_nextOwner != address(0), 'INVALID_OWNER');
+        require(_nextOwner != address(0), 'INVALID_PAIR_OWNER');
         pairOwner = _nextOwner;
+        emit SetPairOwner(msg.sender, pairOwner);
     }
 
     function signalClose() external override {
@@ -173,54 +174,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721Burnable {
     }
 
     function buy(address payable to) external override lock {
-        // require(msg.sender == router, 'DAOfiV1: FORBIDDEN_SWAP');
-        // require(deposited, 'DAOfiV1: UNINITIALIZED_SWAP');
-        // require(
-        //     (tokenIn == baseToken && tokenOut == quoteToken) || (tokenOut == baseToken && tokenIn == quoteToken),
-        //     'DAOfiV1: INCORRECT_TOKENS'
-        // );
-        // require(to != baseToken && to != quoteToken, 'DAOfiV1: INVALID_TO');
-        // require(amountOut > 0 && amountIn > 0, 'DAOfiV1: INSUFFICIENT_IO_AMOUNT');
-        // _safeTransfer(tokenOut, to, amountOut); // optimistically transfer tokens
-        // uint256 balanceIn;
-        // uint256 reserveIn;
-        // if (tokenIn == baseToken) {
-        //     reserveIn = reserveBase;
-        //     balanceIn = IERC20(baseToken).balanceOf(address(this))
-        //         .sub(feesBaseOwner)
-        //         .sub(feesBasePlatform);
-        // } else if (tokenIn == quoteToken) {
-        //     reserveIn = reserveQuote;
-        //     balanceIn = IERC20(quoteToken).balanceOf(address(this))
-        //         .sub(feesQuoteOwner)
-        //         .sub(feesQuotePlatform);
-        // }
-        // uint256 surplus = balanceIn > reserveIn ? balanceIn - reserveIn : 0;
-        // require(amountIn <= surplus, 'DAOfiV1: INCORRECT_INPUT_AMOUNT');
-        // // account for owner and platform fees separately
-        // uint256 amountInSubOwnerFee = amountIn.mul(1000 - fee) / 1000;
-        // uint256 amountInSubPlatformFee = amountIn.mul(1000 - PLATFORM_FEE) / 1000;
-        // uint256 amountInSubFees = amountIn.mul(1000 - (fee + PLATFORM_FEE)) / 1000;
-        // // Check that inputs equal output
-        // // handle quote to base
-        // if (tokenOut == baseToken) {
-        //     require(getBaseOut(amountInSubFees) >= amountOut, 'DAOfiV1: INVALID_BASE_OUTPUT');
-        //     require(amountOut <= reserveBase, 'DAOfiV1: INSUFFICIENT_BASE_RESERVE');
-        //     x = x.add(amountOut);
-        //     reserveQuote = reserveQuote.add(amountInSubFees);
-        //     reserveBase = reserveBase.sub(amountOut);
-        //     feesQuoteOwner = feesQuoteOwner.add(amountIn).sub(amountInSubOwnerFee);
-        //     feesQuotePlatform = feesQuotePlatform.add(amountIn).sub(amountInSubPlatformFee);
-        // } else if (tokenOut == quoteToken) {
-        //     require(getQuoteOut(amountInSubFees) >= amountOut, 'DAOfiV1: INVALID_QUOTE_OUTPUT');
-        //     require(amountOut <= reserveQuote, 'DAOfiV1: INSUFFICIENT_QUOTE_RESERVE');
-        //     x = x.sub(amountInSubFees);
-        //     reserveQuote = reserveQuote.sub(amountOut);
-        //     reserveBase = reserveBase.add(amountInSubFees);
-        //     feesBaseOwner = feesBaseOwner.add(amountIn).sub(amountInSubOwnerFee);
-        //     feesBasePlatform = feesBasePlatform.add(amountIn).sub(amountInSubPlatformFee);
-        // }
-        // emit Swap(address(this), msg.sender, tokenIn, tokenOut, amountIn, amountOut, to);
+        require(nftReserve > 1, 'SOLD_OUT');
     }
 
     function sell(address payable to) external override lock {
@@ -278,6 +232,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721Burnable {
     * @dev Returns the current price of a single NFT
     */
     function price() public view override returns (uint256) {
-        return (m.mul(x ** n).div(SLOPE_DENOM)).mul(10 ** 18);
+        // X has 3 extra decimal places, so expand to 10 ^ 15 for price in WEI
+        return (m.mul(x ** n).div(SLOPE_DENOM)).mul(10 ** 15);
     }
 }
