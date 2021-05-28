@@ -19,12 +19,13 @@ interface IDAOfiV2Pair {
         uint256 tokenId,
         address indexed to
     );
-    function price() external view returns (uint256);
+    function buyPrice() external view returns (uint256);
+    function sellPrice() external view returns (uint256);
     function setPairOwner(address payable) external;
     function signalClose() external;
     function close() external;
     function withdrawOwnerFees() external;
     function withdrawPlatformFees() external;
-    function buy(address payable to) external;
-    function sell(address payable to) external;
+    function buy(address payable to) external payable;
+    function sell(uint256 tokenId, address payable to) external;
 }
