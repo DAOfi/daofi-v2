@@ -2,7 +2,7 @@
 pragma solidity =0.7.6;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import 'hardhat/console.sol';
+// import 'hardhat/console.sol';
 import './interfaces/IDAOfiV2Factory.sol';
 import './interfaces/IDAOfiV2Pair.sol';
 
@@ -195,7 +195,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         uint price = sellPrice();
         require(ethReserve >= price, 'INSUFFICIENT_RESERVE');
         // Burn the tokenId
-        require(_isApprovedOrOwner(msg.sender, _tokenId), 'NOT_APPROVED');
+        require(_isApprovedOrOwner(_msgSender(), _tokenId), 'NOT_APPROVED');
         _burn(_tokenId);
         // Increment NFT reserve
         nftReserve++;

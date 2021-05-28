@@ -16,12 +16,19 @@ describe('DAOfiV2Factory', async () => {
   })
 
   it('reverts and succeeds when calling createPair', async () => {
-    await expect(factory.createPair('Test NFT', 'TNFT', 'https://fake', proxy, wallet.address, 10, 1, 1, 1, 100))
-      .to.emit(factory, 'PairCreated')
+    await expect(
+      factory.createPair('Test NFT', 'TNFT', 'https://fake', proxy, wallet.address, 10, 1, 1, 1, 100)
+    ).to.emit(factory, 'PairCreated')
 
-    await expect(factory.createPair('Test NFT', 'TNFT', 'https://fake', proxy, ethers.constants.AddressZero, 10, 1, 1, 1, 100)).to.be.revertedWith('ZERO_OWNER_ADDRESS')
-    await expect(factory.createPair('Test NFT', '', 'https://fake', proxy, wallet.address, 10, 1, 1, 1, 100)).to.be.revertedWith('EMPTY_SYMBOL')
-    await expect(factory.createPair('Test NFT', 'TNFT', 'https://fake', proxy, wallet.address, 10, 1, 1, 1, 100)).to.be.revertedWith('PAIR_EXISTS')
+    await expect(
+      factory.createPair('Test NFT', 'TNFT', 'https://fake', proxy, ethers.constants.AddressZero, 10, 1, 1, 1, 100)
+    ).to.be.revertedWith('ZERO_OWNER_ADDRESS')
+    await expect(
+      factory.createPair('Test NFT', '', 'https://fake', proxy, wallet.address, 10, 1, 1, 1, 100)
+    ).to.be.revertedWith('EMPTY_SYMBOL')
+    await expect(
+      factory.createPair('Test NFT', 'TNFT', 'https://fake', proxy, wallet.address, 10, 1, 1, 1, 100)
+    ).to.be.revertedWith('PAIR_EXISTS')
   })
 
   it('correctly estimates gas for calling createPair', async () => {

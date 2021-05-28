@@ -20,34 +20,34 @@ describe('DAOfiV2Pair', () => {
   })
 
   it('reverts for any bad parameter given to constructor', async () => {
-    const Pair = await ethers.getContractFactory("DAOfiV2Pair")
-    await expect(Pair.deploy(
-      'Test NFT', 'TNFT', '', proxy, wallet.address, 10, 1, 1e6, 1, 100
-    )).to.be.revertedWith('EMPTY_URI')
-    await expect(Pair.deploy(
-      'Test NFT', 'TNFT', 'https://test', ethers.constants.AddressZero, wallet.address, 10, 1, 1e6, 1, 100
-    )).to.be.revertedWith('ZERO_PROXY_ADDRESS')
-    await expect(Pair.deploy(
-      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 0, 1, 1e6, 1, 100
-    )).to.be.revertedWith('ZERO_NFT_RESERVE')
-    await expect(Pair.deploy(
-      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 0, 1e6, 1, 100
-    )).to.be.revertedWith('ZERO_INIT_X')
-    await expect(Pair.deploy(
-      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 0, 1, 100
-    )).to.be.revertedWith('INVALID_M')
-    await expect(Pair.deploy(
-      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6 + 1, 1, 100
-    )).to.be.revertedWith('INVALID_M')
-    await expect(Pair.deploy(
-      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6, 0, 100
-    )).to.be.revertedWith('INVALID_N')
-    await expect(Pair.deploy(
-      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6, 4, 100
-    )).to.be.revertedWith('INVALID_N')
-    await expect(Pair.deploy(
-      'Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6, 1, 998
-    )).to.be.revertedWith('INVALID_OWNER_FEE')
+    const Pair = await ethers.getContractFactory('DAOfiV2Pair')
+    await expect(Pair.deploy('Test NFT', 'TNFT', '', proxy, wallet.address, 10, 1, 1e6, 1, 100)).to.be.revertedWith(
+      'EMPTY_URI'
+    )
+    await expect(
+      Pair.deploy('Test NFT', 'TNFT', 'https://test', ethers.constants.AddressZero, wallet.address, 10, 1, 1e6, 1, 100)
+    ).to.be.revertedWith('ZERO_PROXY_ADDRESS')
+    await expect(
+      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 0, 1, 1e6, 1, 100)
+    ).to.be.revertedWith('ZERO_NFT_RESERVE')
+    await expect(
+      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 0, 1e6, 1, 100)
+    ).to.be.revertedWith('ZERO_INIT_X')
+    await expect(
+      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 0, 1, 100)
+    ).to.be.revertedWith('INVALID_M')
+    await expect(
+      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6 + 1, 1, 100)
+    ).to.be.revertedWith('INVALID_M')
+    await expect(
+      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6, 0, 100)
+    ).to.be.revertedWith('INVALID_N')
+    await expect(
+      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6, 4, 100)
+    ).to.be.revertedWith('INVALID_N')
+    await expect(
+      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6, 1, 998)
+    ).to.be.revertedWith('INVALID_OWNER_FEE')
   })
 
   it('will properly allow for switching pair owner and revert for bad params', async () => {
@@ -76,8 +76,7 @@ describe('DAOfiV2Pair', () => {
     // switch back to wallet1
     pair = await pair.connect(wallet)
     // success
-    await expect(pair.signalClose())
-      .to.emit(pair, 'SignalClose')
+    await expect(pair.signalClose()).to.emit(pair, 'SignalClose')
     await expect(pair.closeDeadline()).to.not.equal(0)
     // close already signaled
     await expect(pair.signalClose()).to.be.revertedWith('CLOSE_ALREADY_SIGNALED')
@@ -89,8 +88,7 @@ describe('DAOfiV2Pair', () => {
     // attempt close, no signal
     await expect(pair.close()).to.be.revertedWith('INVALID_DEADLINE')
     // successfully signal close
-    await expect(pair.signalClose())
-      .to.emit(pair, 'SignalClose')
+    await expect(pair.signalClose()).to.emit(pair, 'SignalClose')
     // attempt close, deadline not expired
     await expect(pair.close()).to.be.revertedWith('INVALID_DEADLINE')
     // timeout
@@ -98,17 +96,12 @@ describe('DAOfiV2Pair', () => {
     await ethers.provider.send('evm_mine', [])
     // successfully close from any wallet
     pair = await pair.connect(wallet2)
-    await expect(pair.close())
-      .to.emit(pair, 'Close')
+    await expect(pair.close()).to.emit(pair, 'Close')
   })
 
-  it('buy', async () => {
+  it('buy', async () => {})
 
-  })
-
-  it('sell:', async () => {
-
-  })
+  it('sell:', async () => {})
 })
 
 // describe('DAOfiV1Pair: (y = 100x) m = 100, n = 1, fee = 0', () => {
