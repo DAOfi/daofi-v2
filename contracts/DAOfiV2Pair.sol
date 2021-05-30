@@ -29,7 +29,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     address payable public pairOwner = platform;
     uint256 public nftReserve = 1;
     uint256 public ethReserve = 0;
-    uint256 public x = 1; // track nft token supply
+    uint256 public x = decimals18; // initial supply must be at least 1
     uint256 public closeDeadline = 0;
     uint256 public ownerFees = 0;
     uint256 public platformFees = 0;
@@ -37,6 +37,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     // opensea compat
     address public proxyRegistryAddress;
     uint256 private currentTokenId = 0;
+    uint256 private decimals18 = 10 ** 18;
 
     // modifier
     uint private unlocked = 1;
@@ -76,7 +77,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         _setBaseURI(_baseTokenURI);
         proxyRegistryAddress = _proxyAddress;
         pairOwner = _pairOwner;
-        x = _initX;
+        x = _initX * (decimals18);
         m = _m;
         n = _n;
         ownerFee = _ownerFee;
@@ -185,13 +186,13 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         // Update ETH reserve
         ethReserve = ethReserve.add(price).sub(platformShare).sub(ownerShare);
         // Update X
-        x.add(1);
+        x.add(decimals18);
         emit Buy(msg.sender, msg.value, newTokenId, _to);
     }
 
     function sell(uint256 _tokenId, address payable _to) external override lock {
         require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
-        require(x > 1, 'INVALID_X');
+        require(x > decimals18, 'INVALID_X');
         uint price = sellPrice();
         require(ethReserve >= price, 'INSUFFICIENT_RESERVE');
         // Burn the tokenId
@@ -209,7 +210,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         // Update ETH reserve
         ethReserve = ethReserve.sub(price);
         // Update X
-        x.sub(1);
+        x.sub(decimals18);
         emit Sell(msg.sender, price.sub(platformShare).sub(ownerShare), _tokenId, _to);
     }
 
@@ -217,15 +218,13 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     * @dev Returns the current buy price of a single NFT
     */
     function buyPrice() public view override returns (uint256) {
-        require(x > 0, 'INVALID_X');
-        return (m.mul(x ** n).div(SLOPE_DENOM)).mul(10 ** 18);
+        return (m.mul(x ** n).div(SLOPE_DENOM));
     }
 
     /**
     * @dev Returns the current sell price of a single NFT
     */
     function sellPrice() public view override returns (uint256) {
-        require(x > 0, 'INVALID_X');
-        return (m.mul(x.sub(1) ** n).div(SLOPE_DENOM)).mul(10 ** 18);
+        return (m.mul(x.sub(decimals18) ** n).div(SLOPE_DENOM));
     }
 }

@@ -1,18 +1,29 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
-import { BigNumber, Contract } from 'ethers'
+import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
-import { getXForPrice, expandTo18Decimals, expandToDecimals } from './shared/utilities'
+// import { getXForPrice, expandTo18Decimals, expandToDecimals } from './shared/utilities'
 import { pairFixture, factoryFixture } from './shared/fixtures'
 
 const zero = ethers.BigNumber.from(0)
 const proxy = '0xf57b2c51ded3a29e6891aba85459d600256cf317'
+const name = 'Community NFT'
+const symbol = 'CNFT'
+const baseURI = 'https:/test.server/'
+const maxM = 1e6
+const defaults = [
+  10, // supply
+  1, // init x
+  maxM, // m
+  1, // n
+  100 // owner fee
+]
 
 let factory: Contract
 let pair: Contract
 let wallet: SignerWithAddress
 
-describe('DAOfiV2Pair', () => {
+describe('DAOfiV2Pair test all revert cases', () => {
   beforeEach(async () => {
     wallet = (await ethers.getSigners())[0]
     const fixture = await factoryFixture()
@@ -21,39 +32,39 @@ describe('DAOfiV2Pair', () => {
 
   it('reverts for any bad parameter given to constructor', async () => {
     const Pair = await ethers.getContractFactory('DAOfiV2Pair')
-    await expect(Pair.deploy('Test NFT', 'TNFT', '', proxy, wallet.address, 10, 1, 1e6, 1, 100)).to.be.revertedWith(
+    await expect(Pair.deploy(name, symbol, '', proxy, wallet.address, ...defaults)).to.be.revertedWith(
       'EMPTY_URI'
     )
     await expect(
-      Pair.deploy('Test NFT', 'TNFT', 'https://test', ethers.constants.AddressZero, wallet.address, 10, 1, 1e6, 1, 100)
+      Pair.deploy(name, symbol, baseURI, ethers.constants.AddressZero, wallet.address, ...defaults)
     ).to.be.revertedWith('ZERO_PROXY_ADDRESS')
     await expect(
-      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 0, 1, 1e6, 1, 100)
+      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 0, 1, maxM, 1, 100)
     ).to.be.revertedWith('ZERO_NFT_RESERVE')
     await expect(
-      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 0, 1e6, 1, 100)
+      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 0, maxM, 1, 100)
     ).to.be.revertedWith('ZERO_INIT_X')
     await expect(
-      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 0, 1, 100)
+      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, 0, 1, 100)
     ).to.be.revertedWith('INVALID_M')
     await expect(
-      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6 + 1, 1, 100)
+      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, maxM + 1, 1, 100)
     ).to.be.revertedWith('INVALID_M')
     await expect(
-      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6, 0, 100)
+      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, maxM, 0, 100)
     ).to.be.revertedWith('INVALID_N')
     await expect(
-      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6, 4, 100)
+      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, maxM, 4, 100)
     ).to.be.revertedWith('INVALID_N')
     await expect(
-      Pair.deploy('Test NFT', 'TNFT', 'https://test', proxy, wallet.address, 10, 1, 1e6, 1, 998)
+      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, maxM, 1, 998)
     ).to.be.revertedWith('INVALID_OWNER_FEE')
   })
 
   it('will properly allow for switching pair owner and revert for bad params', async () => {
     const wallet2 = (await ethers.getSigners())[1]
     const wallet3 = (await ethers.getSigners())[2]
-    pair = (await pairFixture(wallet, 'Test NFT', 'TNFT', 'https://test', 10, 1, 1e6, 1, 100)).pair
+    pair = (await pairFixture(wallet, name, symbol, baseURI, 10, 1, maxM, 1, 100)).pair
     // owner is the initial wallet in this case, switch wallet to test restriction
     pair = await pair.connect(wallet2)
     await expect(pair.setPairOwner(wallet3.address)).to.be.revertedWith('FORBIDDEN_PAIR_OWNER')
@@ -69,7 +80,7 @@ describe('DAOfiV2Pair', () => {
 
   it('will allow for pair owner to signal close and revert for invalid attempts', async () => {
     const wallet2 = (await ethers.getSigners())[1]
-    pair = (await pairFixture(wallet, 'Test NFT', 'TNFT', 'https://test', 10, 1, 1e6, 1, 100)).pair
+    pair = (await pairFixture(wallet, name, symbol, baseURI, 10, 1, maxM, 1, 100)).pair
     // owner is the initial wallet in this case, switch wallet to test restriction
     pair = await pair.connect(wallet2)
     await expect(pair.signalClose()).to.be.revertedWith('FORBIDDEN_SIGNAL_CLOSE')
@@ -84,7 +95,7 @@ describe('DAOfiV2Pair', () => {
 
   it('will allow for any caller to close the market past signal deadline, or otherwise revert', async () => {
     const wallet2 = (await ethers.getSigners())[1]
-    pair = (await pairFixture(wallet, 'Test NFT', 'TNFT', 'https://test', 10, 1, 1e6, 1, 100)).pair
+    pair = (await pairFixture(wallet, name, symbol, baseURI, 10, 1, maxM, 1, 100)).pair
     // attempt close, no signal
     await expect(pair.close()).to.be.revertedWith('INVALID_DEADLINE')
     // successfully signal close
@@ -99,15 +110,38 @@ describe('DAOfiV2Pair', () => {
     await expect(pair.close()).to.emit(pair, 'Close')
   })
 
-  it('buy', async () => {})
+  it('will revert buy calls with invalid params supplied', async () => {
+    // create normal pair
+    pair = (await pairFixture(wallet, name, symbol, baseURI, ...defaults)).pair
+    // insufficient price
+    const buyPrice = await pair.buyPrice()
+    await expect(pair.buy(wallet.address)).to.be.revertedWith('INSUFFICIENT_FUNDS')
+    // create pair with supply 1
+    const params = [...defaults]
+    params[0] = 1
+    pair = (await pairFixture(wallet, name, symbol, baseURI, ...params)).pair
+    // successfully buy 1
+    await expect(pair.buy(wallet.address, { value: buyPrice })).to.emit(pair, 'Buy')
+    // sold out
+    await expect(pair.buy(wallet.address, { value: buyPrice })).to.be.revertedWith('SOLD_OUT')
+    // close market
+    await expect(pair.signalClose()).to.emit(pair, 'SignalClose')
+    await ethers.provider.send('evm_increaseTime', [86400])
+    await ethers.provider.send('evm_mine', [])
+    await expect(pair.close()).to.emit(pair, 'Close')
+    // market closed
+    await expect(pair.buy(wallet.address, { value: buyPrice })).to.be.revertedWith('MARKET_CLOSED')
+  })
 
-  it('sell:', async () => {})
+  it('will revert sell calls with invalid params supplied', async () => {
+
+  })
 })
 
 // describe('DAOfiV1Pair: (y = 100x) m = 100, n = 1, fee = 0', () => {
 //   beforeEach(async () => {
 //     wallet = (await ethers.getSigners())[0]
-//     const fixture = await pairFixture(wallet, 1e6 * 100, 1, 0)
+//     const fixture = await pairFixture(wallet, maxM * 100, 1, 0)
 
 //     factory = fixture.factory
 //     formula = fixture.formula
@@ -301,7 +335,7 @@ describe('DAOfiV2Pair', () => {
 // describe('DAOfiV1Pair: (y = x) m = 1, n = 1, fee = 0', () => {
 //   beforeEach(async () => {
 //     wallet = (await ethers.getSigners())[0]
-//     const fixture = await pairFixture(wallet, 1e6, 1, 0)
+//     const fixture = await pairFixture(wallet, maxM, 1, 0)
 
 //     factory = fixture.factory
 //     tokenBase = fixture.tokenBase
@@ -353,7 +387,7 @@ describe('DAOfiV2Pair', () => {
 //     it(`deposit: ${i}`, async () => {
 //       const [quotePrice, baseOut] = depositTestCase
 //       const baseSupply = expandTo18Decimals(1e9)
-//       const quoteReserveFloat = Math.trunc(getReserveForStartPrice(quotePrice, 1e6, 1) * 1e17)
+//       const quoteReserveFloat = Math.trunc(getReserveForStartPrice(quotePrice, maxM, 1) * 1e17)
 //       const quoteReserve = ethers.BigNumber.from(quoteReserveFloat.toString()+'0')
 //       const baseOutput = ethers.BigNumber.from(baseOut)
 //       const expectedS = baseOutput
@@ -484,7 +518,7 @@ describe('DAOfiV2Pair', () => {
 //   it('swap: verify price at x', async () => {
 //     const baseSupply = expandTo18Decimals(1e9)
 //     // price 10
-//     const quoteReserveFloat = Math.ceil(getReserveForStartPrice(10, 1e6, 1) * 100000)
+//     const quoteReserveFloat = Math.ceil(getReserveForStartPrice(10, maxM, 1) * 100000)
 //     const quoteReserve = expandToDecimals(quoteReserveFloat, 13)
 //     await addLiquidity(baseSupply, quoteReserve)
 //     // account for platform fee
@@ -510,7 +544,7 @@ describe('DAOfiV2Pair', () => {
 //   it('withdrawPlatformFees:', async () => {
 //     const baseSupply = expandTo18Decimals(1e9)
 //     // price 1
-//     const quoteReserveFloat = Math.ceil(getReserveForStartPrice(1, 1e6, 1) * 100000)
+//     const quoteReserveFloat = Math.ceil(getReserveForStartPrice(1, maxM, 1) * 100000)
 //     const quoteReserve = expandToDecimals(quoteReserveFloat, 13)
 //     await addLiquidity(baseSupply, quoteReserve)
 //     // account for platform fee
@@ -724,7 +758,7 @@ describe('DAOfiV2Pair', () => {
 // describe('DAOfiV1Pair: (y = x) m = 1, n = 1, fee = 3', () => {
 //   beforeEach(async () => {
 //     wallet = (await ethers.getSigners())[0]
-//     const fixture = await pairFixture(wallet, 1e6, 1, 3)
+//     const fixture = await pairFixture(wallet, maxM, 1, 3)
 
 //     factory = fixture.factory
 //     tokenBase = fixture.tokenBase
@@ -735,7 +769,7 @@ describe('DAOfiV2Pair', () => {
 //   it('withdraw: including fees', async () => {
 //     const baseSupply = expandTo18Decimals(1e9)
 //     // price 1
-//     const quoteReserveFloat = Math.ceil(getReserveForStartPrice(1, 1e6, 1) * 100000)
+//     const quoteReserveFloat = Math.ceil(getReserveForStartPrice(1, maxM, 1) * 100000)
 //     const quoteReserve = expandToDecimals(quoteReserveFloat, 13)
 //     const baseReturned = ethers.BigNumber.from('995443602000000000')
 //     await addLiquidity(baseSupply, quoteReserve)
@@ -763,7 +797,7 @@ describe('DAOfiV2Pair', () => {
 //   it('withdrawPlatformFees:', async () => {
 //     const baseSupply = expandTo18Decimals(1e9)
 //     // price 1
-//     const quoteReserveFloat = Math.ceil(getReserveForStartPrice(1, 1e6, 1) * 100000)
+//     const quoteReserveFloat = Math.ceil(getReserveForStartPrice(1, maxM, 1) * 100000)
 //     const quoteReserve = expandToDecimals(quoteReserveFloat, 13)
 //     await addLiquidity(baseSupply, quoteReserve)
 //     // account for platform fee
