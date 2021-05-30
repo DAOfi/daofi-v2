@@ -16,7 +16,7 @@ const defaults = [
   1, // init x
   maxM, // m
   1, // n
-  100 // owner fee
+  100, // owner fee
 ]
 
 let factory: Contract
@@ -32,33 +32,31 @@ describe('DAOfiV2Pair test all revert cases', () => {
 
   it('reverts for any bad parameter given to constructor', async () => {
     const Pair = await ethers.getContractFactory('DAOfiV2Pair')
-    await expect(Pair.deploy(name, symbol, '', proxy, wallet.address, ...defaults)).to.be.revertedWith(
-      'EMPTY_URI'
-    )
+    await expect(Pair.deploy(name, symbol, '', proxy, wallet.address, ...defaults)).to.be.revertedWith('EMPTY_URI')
     await expect(
       Pair.deploy(name, symbol, baseURI, ethers.constants.AddressZero, wallet.address, ...defaults)
     ).to.be.revertedWith('ZERO_PROXY_ADDRESS')
-    await expect(
-      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 0, 1, maxM, 1, 100)
-    ).to.be.revertedWith('ZERO_NFT_RESERVE')
-    await expect(
-      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 0, maxM, 1, 100)
-    ).to.be.revertedWith('ZERO_INIT_X')
-    await expect(
-      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, 0, 1, 100)
-    ).to.be.revertedWith('INVALID_M')
-    await expect(
-      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, maxM + 1, 1, 100)
-    ).to.be.revertedWith('INVALID_M')
-    await expect(
-      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, maxM, 0, 100)
-    ).to.be.revertedWith('INVALID_N')
-    await expect(
-      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, maxM, 4, 100)
-    ).to.be.revertedWith('INVALID_N')
-    await expect(
-      Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, maxM, 1, 998)
-    ).to.be.revertedWith('INVALID_OWNER_FEE')
+    await expect(Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 0, 1, maxM, 1, 100)).to.be.revertedWith(
+      'ZERO_NFT_RESERVE'
+    )
+    await expect(Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 0, maxM, 1, 100)).to.be.revertedWith(
+      'ZERO_INIT_X'
+    )
+    await expect(Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, 0, 1, 100)).to.be.revertedWith(
+      'INVALID_M'
+    )
+    await expect(Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, maxM + 1, 1, 100)).to.be.revertedWith(
+      'INVALID_M'
+    )
+    await expect(Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, maxM, 0, 100)).to.be.revertedWith(
+      'INVALID_N'
+    )
+    await expect(Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, maxM, 4, 100)).to.be.revertedWith(
+      'INVALID_N'
+    )
+    await expect(Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, maxM, 1, 998)).to.be.revertedWith(
+      'INVALID_OWNER_FEE'
+    )
   })
 
   it('will properly allow for switching pair owner and revert for bad params', async () => {
@@ -156,6 +154,8 @@ describe('DAOfiV2Pair test all revert cases', () => {
     // market closed
     await expect(pair.sell(1, wallet.address)).to.be.revertedWith('MARKET_CLOSED')
   })
+
+  it('will allow for a certain max supply given curve params', async () => {})
 })
 
 // describe('DAOfiV1Pair: (y = 100x) m = 100, n = 1, fee = 0', () => {
