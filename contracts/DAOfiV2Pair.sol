@@ -2,7 +2,6 @@
 pragma solidity =0.7.6;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-// import 'hardhat/console.sol';
 import './interfaces/IDAOfiV2Factory.sol';
 import './interfaces/IDAOfiV2Pair.sol';
 
@@ -186,7 +185,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         // Update ETH reserve
         ethReserve = ethReserve.add(price).sub(platformShare).sub(ownerShare);
         // Update X
-        x.add(decimals18);
+        x = x.add(decimals18.sub(decimals18.mul(platformFee.add(ownerFee)).div(1000)));
         emit Buy(msg.sender, msg.value, newTokenId, _to);
     }
 
@@ -196,7 +195,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         uint price = sellPrice();
         require(ethReserve >= price, 'INSUFFICIENT_RESERVE');
         // Burn the tokenId
-        require(_isApprovedOrOwner(_msgSender(), _tokenId), 'NOT_APPROVED');
+        require(_isApprovedOrOwner(_msgSender(), _tokenId), 'UNAPPROVED_SELL');
         _burn(_tokenId);
         // Increment NFT reserve
         nftReserve++;
@@ -210,7 +209,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         // Update ETH reserve
         ethReserve = ethReserve.sub(price);
         // Update X
-        x.sub(decimals18);
+        x = x.sub(decimals18.sub(decimals18.mul(platformFee.add(ownerFee)).div(1000)));
         emit Sell(msg.sender, price.sub(platformShare).sub(ownerShare), _tokenId, _to);
     }
 

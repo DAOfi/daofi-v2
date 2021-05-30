@@ -134,7 +134,27 @@ describe('DAOfiV2Pair test all revert cases', () => {
   })
 
   it('will revert sell calls with invalid params supplied', async () => {
-
+    const wallet2 = (await ethers.getSigners())[1]
+    // create normal pair
+    pair = (await pairFixture(wallet, name, symbol, baseURI, ...defaults)).pair
+    // attempt to sell before buying
+    await expect(pair.sell(1, wallet.address)).to.be.revertedWith('INVALID_X')
+    // successfully buy 1
+    const buyPrice = await pair.buyPrice()
+    await expect(pair.buy(wallet.address, { value: buyPrice })).to.emit(pair, 'Buy')
+    // sell unappproved
+    pair = await pair.connect(wallet2)
+    await expect(pair.sell(1, wallet.address)).to.be.revertedWith('UNAPPROVED_SELL')
+    // successfull sell
+    pair = await pair.connect(wallet)
+    await expect(pair.sell(1, wallet.address)).to.emit(pair, 'Sell')
+    // close market
+    await expect(pair.signalClose()).to.emit(pair, 'SignalClose')
+    await ethers.provider.send('evm_increaseTime', [86400])
+    await ethers.provider.send('evm_mine', [])
+    await expect(pair.close()).to.emit(pair, 'Close')
+    // market closed
+    await expect(pair.sell(1, wallet.address)).to.be.revertedWith('MARKET_CLOSED')
   })
 })
 
