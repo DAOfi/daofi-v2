@@ -1,6 +1,6 @@
 {
   "name": "@daofi/daofi-v2",
-  "description": "Core and periphery contracts for the DAOfi V2 protocol",
+  "description": "Factory and Pair contracts for the DAOfi V2 protocol",
   "version": "1.0.0",
   "homepage": "https://daofi.org",
   "repository": {
@@ -40,15 +40,14 @@
     "typescript": "4.1.2"
   },
   "scripts": {
-    "lint": "yarn prettier ./test/*.ts --check",
-    "lint:fix": "yarn prettier ./test/*.ts --write",
+    "lint": "yarn prettier ./test/*.ts ./scripts/*.ts --check",
+    "lint:fix": "yarn prettier ./test/*.ts ./scripts/*.ts --write",
     "clean": "rimraf ./build/",
     "precompile": "yarn clean",
     "compile": "npx hardhat compile",
     "pretest": "yarn compile",
     "test": "npx hardhat test",
-    "prepublishOnly": "yarn test",
-    "deploy": "ts-node scripts/deploy.ts"
+    "prepublishOnly": "yarn test"
   },
   "license": "MIT"
 }

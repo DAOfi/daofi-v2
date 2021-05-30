@@ -1,12 +1,10 @@
 import { ethers } from 'ethers'
 import DAOfiV2Pair from '../build/contracts/DAOfiV2Pair.sol/DAOfiV2Pair.json'
 
-const sleep = async (time: number) => new Promise(resolve => setTimeout(resolve, time))
+const sleep = async (time: number) => new Promise((resolve) => setTimeout(resolve, time))
 
 async function main() {
-  const provider = new ethers.providers.JsonRpcProvider(
-    process.env.JSONRPC_URL || 'https://kovan.poa.network'
-  )
+  const provider = new ethers.providers.JsonRpcProvider(process.env.JSONRPC_URL || 'https://kovan.poa.network')
   const wallet = new ethers.Wallet(process.env.PRIVATE_KEY || '', provider)
   console.log('Wallet:', wallet.address)
 
@@ -22,7 +20,7 @@ async function main() {
 
 main()
   .then(() => process.exit(0))
-  .catch(error => {
+  .catch((error) => {
     console.error(error)
     process.exit(1)
-  });
+  })

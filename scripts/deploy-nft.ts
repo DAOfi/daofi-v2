@@ -1,7 +1,7 @@
 import { ethers } from 'ethers'
 import DAOfiV2Factory from '../build/contracts/DAOfiV2Factory.sol/DAOfiV2Factory.json'
 
-const sleep = async (time: number) => new Promise(resolve => setTimeout(resolve, time))
+const sleep = async (time: number) => new Promise((resolve) => setTimeout(resolve, time))
 
 async function main() {
   const provider = new ethers.providers.JsonRpcProvider(
@@ -10,7 +10,11 @@ async function main() {
   const wallet = new ethers.Wallet(process.env.PRIVATE_KEY || '', provider)
   console.log('Wallet:', wallet.address)
 
-  const factory = new ethers.Contract(process.env.FACTORY || '0x839A389790f7A89981b2f98456566583F468d386', DAOfiV2Factory.abi, wallet)
+  const factory = new ethers.Contract(
+    process.env.FACTORY || '0x839A389790f7A89981b2f98456566583F468d386',
+    DAOfiV2Factory.abi,
+    wallet
+  )
   console.log('Factory:', factory.address)
 
   const pairTx = await factory.createPair(
@@ -26,7 +30,7 @@ async function main() {
     100, // fee
     {
       gasLimit: 8000000,
-      gasPrice: ethers.utils.parseUnits('200', 'gwei')
+      gasPrice: ethers.utils.parseUnits('200', 'gwei'),
     }
   )
 
@@ -37,7 +41,7 @@ async function main() {
 
 main()
   .then(() => process.exit(0))
-  .catch(error => {
+  .catch((error) => {
     console.error(error)
     process.exit(1)
-  });
+  })
