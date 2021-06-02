@@ -11,19 +11,19 @@ async function main() {
   console.log('Wallet:', wallet.address)
 
   const factory = new ethers.Contract(
-    process.env.FACTORY || '0x839A389790f7A89981b2f98456566583F468d386',
+    process.env.FACTORY || '0xC54F369bB82055817E8AB1f3EECE4b7C7D73A4d7',
     DAOfiV2Factory.abi,
     wallet
   )
   console.log('Factory:', factory.address)
 
   const pairTx = await factory.createPair(
-    'Test NFT',
-    'TNFT',
+    'Community NFT',
+    'CNFT',
     'https://api.hodlink.io/4_20_21/',
     process.env.PROXY || '0xf57b2c51ded3a29e6891aba85459d600256cf317',
     wallet.address,
-    10, // tokens
+    100, // tokens
     1, // start x
     1, // m
     1, // n

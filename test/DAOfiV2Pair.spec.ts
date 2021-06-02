@@ -23,7 +23,7 @@ let factory: Contract
 let pair: Contract
 let wallet: SignerWithAddress
 
-describe('DAOfiV2Pair test all revert cases', () => {
+describe('DAOfiV2Pair test all revert and error cases', () => {
   beforeEach(async () => {
     wallet = (await ethers.getSigners())[0]
     const fixture = await factoryFixture()
@@ -154,8 +154,6 @@ describe('DAOfiV2Pair test all revert cases', () => {
     // market closed
     await expect(pair.sell(1, wallet.address)).to.be.revertedWith('MARKET_CLOSED')
   })
-
-  it('will allow for a certain max supply given curve params', async () => {})
 })
 
 // describe('DAOfiV1Pair: (y = 100x) m = 100, n = 1, fee = 0', () => {

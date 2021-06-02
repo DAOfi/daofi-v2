@@ -74,6 +74,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         require(_n > 0 && _n <= MAX_N, 'INVALID_N');
         require(_ownerFee <= MAX_OWNER_FEE, 'INVALID_OWNER_FEE');
         _setBaseURI(_baseTokenURI);
+        nftReserve = _nftReserve;
         proxyRegistryAddress = _proxyAddress;
         pairOwner = _pairOwner;
         x = _initX * (decimals18);
