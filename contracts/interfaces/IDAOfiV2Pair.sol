@@ -26,6 +26,6 @@ interface IDAOfiV2Pair {
     function close() external;
     function withdrawOwnerFees() external;
     function withdrawPlatformFees() external;
-    function buy(address payable to) external payable;
+    function buy(address payable to) external payable returns (uint256);
     function sell(uint256 tokenId, address payable to) external;
 }

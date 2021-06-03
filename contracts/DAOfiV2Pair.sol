@@ -163,7 +163,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         platformFees = 0;
     }
 
-    function buy(address payable _to) external payable override lock {
+    function buy(address payable _to) external payable override lock returns (uint256) {
         require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
         require(nftReserve > 0, 'SOLD_OUT');
         uint price = buyPrice();
@@ -188,6 +188,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         // Update X
         x = x.add(decimals18.sub(decimals18.mul(platformFee.add(ownerFee)).div(1000)));
         emit Buy(msg.sender, msg.value, newTokenId, _to);
+        return newTokenId;
     }
 
     function sell(uint256 _tokenId, address payable _to) external override lock {
