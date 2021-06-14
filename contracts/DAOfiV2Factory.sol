@@ -26,14 +26,13 @@ contract DAOfiV2Factory is IDAOfiV2Factory {
         string memory _baseTokenURI,
         address _proxyAddress,
         address payable _pairOwner,
+        uint256 _preMint,
         uint256 _nftReserve,
         uint256 _initX,
         uint32 _m,
         uint32 _n,
         uint32 _ownerFee
     ) external override returns (address _pair) {
-        require(_pairOwner != address(0), 'ZERO_OWNER_ADDRESS');
-        require(keccak256(bytes(_symbol)) != keccak256(bytes("")), 'EMPTY_SYMBOL');
         require(getPair[_pairOwner][_symbol] == address(0), 'PAIR_EXISTS');
         _pair = address(new DAOfiV2Pair(
             _name,
@@ -47,6 +46,9 @@ contract DAOfiV2Factory is IDAOfiV2Factory {
             _n,
             _ownerFee
         ));
+        for (uint256 i = 0; i < _preMint; i++) {
+            DAOfiV2Pair(_pair).preMint();
+        }
         getPair[_pairOwner][_symbol] = _pair;
         allPairs.push(_pair);
         emit PairCreated(

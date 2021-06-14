@@ -18,6 +18,7 @@ interface IDAOfiV2Factory {
         string memory _baseTokenURI,
         address _proxyAddress,
         address payable _pairOwner,
+        uint256 _preMint,
         uint256 _nftReserve,
         uint256 _initX,
         uint32 _m,

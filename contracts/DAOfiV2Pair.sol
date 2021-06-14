@@ -2,7 +2,6 @@
 pragma solidity =0.7.6;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import './interfaces/IDAOfiV2Factory.sol';
 import './interfaces/IDAOfiV2Pair.sol';
 
 contract OwnableDelegateProxy {}
@@ -21,6 +20,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
 
     uint8 public constant platformFee = 3; // 0.3%
     address payable public constant platform = 0xAD10D4F9937D743cbEb1383B1D3A3AD15Ace75D6;
+    address private factory = platform;
 
     uint32 public m = SLOPE_DENOM;
     uint32 public n = 1;
@@ -66,14 +66,12 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         uint32 _n,
         uint32 _ownerFee
     ) ERC721(_name, _symbol) {
-        require(keccak256(bytes(_baseTokenURI)) != keccak256(bytes("")), 'EMPTY_URI');
-        require(_proxyAddress != address(0), 'ZERO_PROXY_ADDRESS');
-        require(_nftReserve > 0, 'ZERO_NFT_RESERVE');
         require(_initX > 0, 'ZERO_INIT_X');
         require(_m > 0 && _m <= SLOPE_DENOM, 'INVALID_M');
         require(_n > 0 && _n <= MAX_N, 'INVALID_N');
         require(_ownerFee <= MAX_OWNER_FEE, 'INVALID_OWNER_FEE');
         _setBaseURI(_baseTokenURI);
+        factory = msg.sender;
         nftReserve = _nftReserve;
         proxyRegistryAddress = _proxyAddress;
         pairOwner = _pairOwner;
@@ -81,6 +79,14 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         m = _m;
         n = _n;
         ownerFee = _ownerFee;
+    }
+
+    function preMint() external override {
+        require(msg.sender == factory, 'FACTORY_ONLY');
+        require(ethReserve == 0, 'PREMINT_UNAVAILABLE');
+        uint256 newTokenId = _getNextTokenId();
+        _mint(pairOwner, newTokenId);
+        _incrementTokenId();
     }
 
     /**
