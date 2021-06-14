@@ -20,7 +20,6 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
 
     uint8 public constant platformFee = 3; // 0.3%
     address payable public constant platform = 0xAD10D4F9937D743cbEb1383B1D3A3AD15Ace75D6;
-    address private factory = platform;
 
     uint32 public m = SLOPE_DENOM;
     uint32 public n = 1;
@@ -38,18 +37,8 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     uint256 private currentTokenId = 0;
     uint256 private decimals18 = 10 ** 18;
 
-    // modifier
-    uint private unlocked = 1;
-
-    /**
-    * @dev Used to prevent reentrancy attack
-    */
-    modifier lock() {
-        require(unlocked == 1, 'LOCKED');
-        unlocked = 0;
-        _;
-        unlocked = 1;
-    }
+    // prevent premint
+    bool private preminted = false;
 
     /**
     * @dev Create the NFT contract from name symbol and baseURI
@@ -71,7 +60,6 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         require(_n > 0 && _n <= MAX_N, 'INVALID_N');
         require(_ownerFee <= MAX_OWNER_FEE, 'INVALID_OWNER_FEE');
         _setBaseURI(_baseTokenURI);
-        factory = msg.sender;
         nftReserve = _nftReserve;
         proxyRegistryAddress = _proxyAddress;
         pairOwner = _pairOwner;
@@ -81,12 +69,17 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         ownerFee = _ownerFee;
     }
 
-    function preMint() external override {
-        require(msg.sender == factory, 'FACTORY_ONLY');
-        require(ethReserve == 0, 'PREMINT_UNAVAILABLE');
-        uint256 newTokenId = _getNextTokenId();
-        _mint(pairOwner, newTokenId);
-        _incrementTokenId();
+    function preMint(uint256 _count) external override {
+        require(msg.sender == pairOwner, 'OWNER_ONLY');
+        require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
+        require(ethReserve == 0, 'MARKET_OPEN');
+        require(preminted == false, 'DOUBLE_PREMINT');
+        preminted = true;
+        for (uint256 i = 0; i < _count; i++) {
+            uint256 newTokenId = _getNextTokenId();
+            _mint(pairOwner, newTokenId);
+            _incrementTokenId();
+        }
     }
 
     /**
@@ -169,7 +162,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         platformFees = 0;
     }
 
-    function buy(address payable _to) external payable override lock returns (uint256) {
+    function buy(address payable _to) external payable override returns (uint256) {
         require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
         require(nftReserve > 0, 'SOLD_OUT');
         uint price = buyPrice();
@@ -197,7 +190,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         return newTokenId;
     }
 
-    function sell(uint256 _tokenId, address payable _to) external override lock {
+    function sell(uint256 _tokenId, address payable _to) external override {
         require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
         require(x > decimals18, 'INVALID_X');
         uint price = sellPrice();
