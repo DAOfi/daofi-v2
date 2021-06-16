@@ -31,14 +31,12 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     uint256 public closeDeadline = 0;
     uint256 public ownerFees = 0;
     uint256 public platformFees = 0;
+    uint256 public preMintSupply = 0;
 
     // opensea compat
     address public proxyRegistryAddress;
     uint256 private currentTokenId = 0;
     uint256 private decimals18 = 10 ** 18;
-
-    // prevent premint
-    bool private preminted = false;
 
     /**
     * @dev Create the NFT contract from name symbol and baseURI
@@ -72,14 +70,15 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     function preMint(uint256 _count) external override {
         require(msg.sender == pairOwner, 'OWNER_ONLY');
         require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
-        require(ethReserve == 0, 'MARKET_OPEN');
-        require(preminted == false, 'DOUBLE_PREMINT');
-        preminted = true;
+        require(ethReserve == 0 && ownerFees == 0 && platformFees == 0, 'MARKET_OPEN');
+        require(preMintSupply == 0, 'DOUBLE_PREMINT');
+        preMintSupply = _count;
         for (uint256 i = 0; i < _count; i++) {
             uint256 newTokenId = _getNextTokenId();
             _mint(pairOwner, newTokenId);
             _incrementTokenId();
         }
+        emit PreMint(_count);
     }
 
     /**

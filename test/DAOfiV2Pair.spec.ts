@@ -23,7 +23,7 @@ let factory: Contract
 let pair: Contract
 let wallet: SignerWithAddress
 
-describe('DAOfiV2Pair test all revert and error cases', () => {
+describe('DAOfiV2Pair test all success and revert cases', () => {
   beforeEach(async () => {
     wallet = (await ethers.getSigners())[0]
     const fixture = await factoryFixture()
@@ -32,13 +32,6 @@ describe('DAOfiV2Pair test all revert and error cases', () => {
 
   it('reverts for any bad parameter given to constructor', async () => {
     const Pair = await ethers.getContractFactory('DAOfiV2Pair')
-    await expect(Pair.deploy(name, symbol, '', proxy, wallet.address, ...defaults)).to.be.revertedWith('EMPTY_URI')
-    await expect(
-      Pair.deploy(name, symbol, baseURI, ethers.constants.AddressZero, wallet.address, ...defaults)
-    ).to.be.revertedWith('ZERO_PROXY_ADDRESS')
-    await expect(Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 0, 1, maxM, 1, 100)).to.be.revertedWith(
-      'ZERO_NFT_RESERVE'
-    )
     await expect(Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 0, maxM, 1, 100)).to.be.revertedWith(
       'ZERO_INIT_X'
     )
@@ -57,6 +50,33 @@ describe('DAOfiV2Pair test all revert and error cases', () => {
     await expect(Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 1, maxM, 1, 998)).to.be.revertedWith(
       'INVALID_OWNER_FEE'
     )
+  })
+
+  it('will allow preMint and revert preMint in all conditions', async () => {
+    const wallet2 = (await ethers.getSigners())[1]
+    // create normal pair
+    pair = (await pairFixture(wallet, name, symbol, baseURI, ...defaults)).pair
+    // attempt to preMint from wallet 2
+    pair = await pair.connect(wallet2)
+    await expect(pair.preMint(40)).to.be.revertedWith('OWNER_ONLY')
+    // switch back to wallet1
+    pair = await pair.connect(wallet)
+    // successfully preMint
+    await expect(pair.preMint(40)).to.emit(pair, 'PreMint').withArgs(40)
+    // double preMint
+    await expect(pair.preMint(40)).to.be.revertedWith('DOUBLE_PREMINT')
+    // successfully buy
+    const buyPrice = await pair.buyPrice()
+    await expect(pair.buy(wallet.address, { value: buyPrice })).to.emit(pair, 'Buy')
+    // market open
+    await expect(pair.preMint(40)).to.be.revertedWith('MARKET_OPEN')
+    // successfully signal close
+    await expect(pair.signalClose()).to.emit(pair, 'SignalClose')
+    await ethers.provider.send('evm_increaseTime', [86400])
+    await ethers.provider.send('evm_mine', [])
+    await expect(pair.close()).to.emit(pair, 'Close')
+    // market closed
+    await expect(pair.preMint(40)).to.be.revertedWith('MARKET_CLOSED')
   })
 
   it('will properly allow for switching pair owner and revert for bad params', async () => {
