@@ -79,6 +79,21 @@ describe('DAOfiV2Pair test all success and revert cases', () => {
     await expect(pair.preMint(40)).to.be.revertedWith('MARKET_CLOSED')
   })
 
+  it('will quantify gas cost for preMint', async () => {
+    // create normal pair
+    pair = (await pairFixture(wallet, name, symbol, baseURI, ...defaults)).pair
+    // successfully preMint 1
+    let tx = await pair.preMint(1)
+    let receipt = await tx.wait()
+    expect(receipt.gasUsed).to.eq(219596)
+    // create normal pair
+    pair = (await pairFixture(wallet, name, symbol, baseURI, ...defaults)).pair
+    // successfully preMint 2
+    tx = await pair.preMint(2)
+    receipt = await tx.wait()
+    expect(receipt.gasUsed).to.eq(333934)
+  })
+
   it('will properly allow for switching pair owner and revert for bad params', async () => {
     const wallet2 = (await ethers.getSigners())[1]
     const wallet3 = (await ethers.getSigners())[2]
