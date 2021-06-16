@@ -11,7 +11,7 @@ async function main() {
 
   const factory = await deployContract(wallet, DAOfiV2Factory, [], {
     gasLimit: 8000000,
-    gasPrice: ethers.utils.parseUnits('200', 'gwei'),
+    gasPrice: ethers.utils.parseUnits('20', 'gwei'),
   })
   // rinkeby 0x839A389790f7A89981b2f98456566583F468d386
   console.log('Factory deployed at:', factory.address)

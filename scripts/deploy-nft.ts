@@ -1,7 +1,6 @@
 import { ethers } from 'ethers'
 import DAOfiV2Factory from '../build/contracts/DAOfiV2Factory.sol/DAOfiV2Factory.json'
-
-const sleep = async (time: number) => new Promise((resolve) => setTimeout(resolve, time))
+import DAOfiV2Pair from '../build/contracts/DAOfiV2Pair.sol/DAOfiV2Pair.json'
 
 async function main() {
   const provider = new ethers.providers.JsonRpcProvider(
@@ -11,15 +10,15 @@ async function main() {
   console.log('Wallet:', wallet.address)
 
   const factory = new ethers.Contract(
-    process.env.FACTORY || '0xB4a08F42FC52e521BE1108e8106C50a43dA9CCc8',
+    process.env.FACTORY || '0xD170C70FBFA7EAecB6809b3e95Eb705CeFb0cE11',
     DAOfiV2Factory.abi,
     wallet
   )
   console.log('Factory:', factory.address)
 
   const pairTx = await factory.createPair(
-    'Community NFT',
-    'CNFT',
+    'Communifty Test NFT',
+    '$CNFT1',
     'https://api.hodlink.io/4_20_21/',
     process.env.PROXY || '0xf57b2c51ded3a29e6891aba85459d600256cf317',
     wallet.address,
@@ -30,13 +29,21 @@ async function main() {
     100, // fee
     {
       gasLimit: 8000000,
-      gasPrice: ethers.utils.parseUnits('200', 'gwei'),
+      gasPrice: ethers.utils.parseUnits('20', 'gwei'),
     }
   )
 
-  const pair = await pairTx.wait()
+  await pairTx.wait()
+  const pairAddr = await factory.getPair(wallet.address, '$CNFT1')
+  console.log('Pair created:', pairAddr)
+  const pair = new ethers.Contract(pairAddr, DAOfiV2Pair.abi, wallet)
 
-  console.log('Pair created:', pair)
+  await pair.preMint(10, {
+    gasLimit: 8000000,
+    gasPrice: ethers.utils.parseUnits('20', 'gwei'),
+  })
+
+  console.log('Preminted!')
 }
 
 main()

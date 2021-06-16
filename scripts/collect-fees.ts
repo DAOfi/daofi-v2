@@ -13,7 +13,7 @@ async function main() {
 
   await pair.withdrawPlatformFees({
     gasLimit: 8000000,
-    gasPrice: ethers.utils.parseUnits('200', 'gwei'),
+    gasPrice: ethers.utils.parseUnits('20', 'gwei'),
   })
 
   await sleep(10000)
