@@ -16,9 +16,9 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
 
     uint32 private constant SLOPE_DENOM = 1000000; // slope = m / SLOPE_DENOM
     uint32 private constant MAX_N = 3; // y = mx^n, n <= MAX_N
-    uint32 private constant MAX_OWNER_FEE = 997; // 99.7%
+    uint32 private constant MAX_OWNER_FEE = 950; // 95.0%
 
-    uint8 public constant platformFee = 3; // 0.3%
+    uint8 public constant platformFee = 50; // 5.0%
     address payable public constant platform = 0xAD10D4F9937D743cbEb1383B1D3A3AD15Ace75D6;
 
     uint32 public m = SLOPE_DENOM;
