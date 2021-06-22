@@ -10,7 +10,7 @@ async function main() {
   console.log('Wallet:', wallet.address)
 
   const factory = new ethers.Contract(
-    process.env.FACTORY || '0xD170C70FBFA7EAecB6809b3e95Eb705CeFb0cE11',
+    process.env.FACTORY || '0x0Bf8c886ddbE7E65A88936d41a35a8e1DC08faDe',
     DAOfiV2Factory.abi,
     wallet
   )
@@ -18,15 +18,15 @@ async function main() {
 
   const pairTx = await factory.createPair(
     'Communifty Test NFT',
-    '$CNFT1',
+    'TESTNFT',
     'https://api.hodlink.io/4_20_21/',
     process.env.PROXY || '0xf57b2c51ded3a29e6891aba85459d600256cf317',
     wallet.address,
     100, // tokens
     1, // start x
-    1, // m
-    1, // n
-    100, // fee
+    1e6, // m
+    2, // n
+    50, // fee
     {
       gasLimit: 8000000,
       gasPrice: ethers.utils.parseUnits('20', 'gwei'),
@@ -34,7 +34,7 @@ async function main() {
   )
 
   await pairTx.wait()
-  const pairAddr = await factory.getPair(wallet.address, '$CNFT1')
+  const pairAddr = await factory.getPair(wallet.address, 'TESTNFT')
   console.log('Pair created:', pairAddr)
   const pair = new ethers.Contract(pairAddr, DAOfiV2Pair.abi, wallet)
 
@@ -43,7 +43,7 @@ async function main() {
     gasPrice: ethers.utils.parseUnits('20', 'gwei'),
   })
 
-  console.log('Preminted!')
+  console.log('Preminted 10')
 }
 
 main()

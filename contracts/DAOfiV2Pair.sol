@@ -27,7 +27,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     address payable public pairOwner = platform;
     uint256 public nftReserve = 1;
     uint256 public ethReserve = 0;
-    uint256 public x = decimals18; // initial supply must be at least 1
+    uint256 public x = 1; // initial supply must be at least 1
     uint256 public closeDeadline = 0;
     uint256 public ownerFees = 0;
     uint256 public platformFees = 0;
@@ -61,7 +61,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         nftReserve = _nftReserve;
         proxyRegistryAddress = _proxyAddress;
         pairOwner = _pairOwner;
-        x = _initX * (decimals18);
+        x = _initX;
         m = _m;
         n = _n;
         ownerFee = _ownerFee;
@@ -184,14 +184,14 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         // Update ETH reserve
         ethReserve = ethReserve.add(price).sub(platformShare).sub(ownerShare);
         // Update X
-        x = x.add(decimals18.sub(decimals18.mul(platformFee.add(ownerFee)).div(1000)));
+        x = x + 1;
         emit Buy(msg.sender, msg.value, newTokenId, _to);
         return newTokenId;
     }
 
     function sell(uint256 _tokenId, address payable _to) external override {
         require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
-        require(x > decimals18, 'INVALID_X');
+        require(x > 1, 'INVALID_X');
         uint price = sellPrice();
         require(ethReserve >= price, 'INSUFFICIENT_RESERVE');
         // Burn the tokenId
@@ -209,7 +209,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         // Update ETH reserve
         ethReserve = ethReserve.sub(price);
         // Update X
-        x = x.sub(decimals18.sub(decimals18.mul(platformFee.add(ownerFee)).div(1000)));
+        x = x - 1;
         emit Sell(msg.sender, price.sub(platformShare).sub(ownerShare), _tokenId, _to);
     }
 
@@ -217,13 +217,15 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     * @dev Returns the current buy price of a single NFT
     */
     function buyPrice() public view override returns (uint256) {
-        return (m.mul(x ** n).div(SLOPE_DENOM));
+        uint256 basePrice = m.mul( (x ** n).mul(decimals18) ).div(SLOPE_DENOM);
+        return basePrice.mul(1000 + ownerFee + platformFee).div(1000);
     }
 
     /**
     * @dev Returns the current sell price of a single NFT
     */
     function sellPrice() public view override returns (uint256) {
-        return (m.mul(x.sub(decimals18) ** n).div(SLOPE_DENOM));
+        uint256 basePrice = m.mul( (x.sub(1) ** n).mul(decimals18) ).div(SLOPE_DENOM);
+        return basePrice.mul(ownerFee + platformFee).div(1000);
     }
 }

@@ -2,7 +2,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
-// import { getXForPrice, expandTo18Decimals, expandToDecimals } from './shared/utilities'
+import { getPriceForX, expandTo18Decimals, expandToDecimals } from './shared/utilities'
 import { pairFixture } from './shared/fixtures'
 
 const zero = ethers.BigNumber.from(0)
@@ -189,18 +189,19 @@ describe('DAOfiV2Pair test all success and revert cases', () => {
   })
 })
 
-describe('DAOfiV1Pair test curves with various settings', () => {
+describe.only('DAOfiV1Pair test curves with various settings', () => {
   beforeEach(async () => {
     wallet = (await ethers.getSigners())[0]
   })
 
   // symbol, reserve, init x, m, n, fee, pre mint
   const curveTestCases: any[][] = [
-    ['TNFT1', 10, 1, maxM, 1, 10, 10]
+    ['TNFT1', 10, 1, 1, 1, 10, 10]
   ]
 
   curveTestCases.forEach((testData, i) => {
     it(`case: ${i}`, async () => {
+      const wallet2 = (await ethers.getSigners())[1]
       pair = (await pairFixture(
         wallet,
         name,
@@ -213,11 +214,23 @@ describe('DAOfiV1Pair test curves with various settings', () => {
         testData[5]
       )).pair
       // premint
-      // check pair owner NFT balance
-      // check initial price
+      await pair.preMint(testData[6])
+      const balance = await pair.balanceOf(wallet.address)
+      expect(balance).to.be.equal(ethers.BigNumber.from(testData[6]))
       // loop buy reserve with wallet 2
+      pair = await pair.connect(wallet2)
+      for (let i = 0; i < testData[1]; ++i) {
+        // check buy price
+        const buyPrice = await pair.buyPrice()
+        const calcPrice = getPriceForX(testData[2] + i, testData[3], testData[4], testData[5])
+        expect(buyPrice).to.be.equal(ethers.BigNumber.from(calcPrice))
+        // buy
+        console.log('buy price: ' + i, buyPrice.toString())
+        await expect(pair.buy(wallet2.address, { value: buyPrice })).to.emit(pair, 'Buy')
         // check nft reserve, total supply
         // check eth reserve, fees, buy, sell price
+      }
+
       // loop sell reserve with wallet 2
         // check nft reserve, total supply
         // check eth reserve, fees, buy, sell price
