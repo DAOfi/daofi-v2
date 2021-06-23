@@ -11,7 +11,7 @@ async function main() {
   console.log('Wallet:', wallet.address)
 
   const pair = new ethers.Contract(
-    process.env.PAIR || '0xdd18d6675C046F6Bc9E5dfD1BDD8BC28bb808CA5',
+    process.env.PAIR || '0x891259E46db786C25CA7fd7dEb12fE57fE91869A',
     DAOfiV2Pair.abi,
     wallet
   )

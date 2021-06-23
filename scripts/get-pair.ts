@@ -9,7 +9,7 @@ async function main() {
   console.log('Wallet:', wallet.address)
 
   const factory = new ethers.Contract(
-    process.env.FACTORY || '0xB4a08F42FC52e521BE1108e8106C50a43dA9CCc8',
+    process.env.FACTORY || '0x4e628C710f6a76CF695FB01Dc65dc7DE74D461e9',
     DAOfiV2Factory.abi,
     wallet
   )

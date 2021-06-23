@@ -13,7 +13,7 @@ async function main() {
     gasLimit: 8000000,
     gasPrice: ethers.utils.parseUnits('20', 'gwei'),
   })
-  // rinkeby 0x839A389790f7A89981b2f98456566583F468d386
+  // rinkeby 0x4e628C710f6a76CF695FB01Dc65dc7DE74D461e9
   console.log('Factory deployed at:', factory.address)
 }
 
