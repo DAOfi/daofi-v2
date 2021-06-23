@@ -164,8 +164,9 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     function buy(address payable _to) external payable override returns (uint256) {
         require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
         require(nftReserve > 0, 'SOLD_OUT');
-        uint price = buyPrice();
-        require(msg.value >= price, 'INSUFFICIENT_FUNDS');
+        uint purchasePrice = buyPrice();
+        require(msg.value >= purchasePrice, 'INSUFFICIENT_FUNDS');
+        uint basePrice = priceAtX(x);
         // Mint a new token to the recipient
         uint256 newTokenId = _getNextTokenId();
         _mint(_to, newTokenId);
@@ -173,59 +174,67 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         // Decrement NFT reserve
         nftReserve--;
         // Refund excess ETH
-        if (msg.value > price) {
-            _to.transfer(msg.value.sub(price));
+        if (msg.value > purchasePrice) {
+            _to.transfer(msg.value.sub(purchasePrice));
         }
         // Divi up fees
-        uint platformShare = price.mul(platformFee).div(1000);
-        uint ownerShare = price.mul(ownerFee).div(1000);
+        uint platformShare = basePrice.mul(platformFee).div(1000);
+        uint ownerShare = basePrice.mul(ownerFee).div(1000);
         platformFees = platformFees.add(platformShare);
         ownerFees = ownerFees.add(ownerShare);
         // Update ETH reserve
-        ethReserve = ethReserve.add(price).sub(platformShare).sub(ownerShare);
+        ethReserve = ethReserve.add(basePrice);
         // Update X
         x = x + 1;
-        emit Buy(msg.sender, msg.value, newTokenId, _to);
+        emit Buy(msg.sender, purchasePrice, newTokenId, _to);
         return newTokenId;
     }
 
     function sell(uint256 _tokenId, address payable _to) external override {
         require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
         require(x > 1, 'INVALID_X');
-        uint price = sellPrice();
-        require(ethReserve >= price, 'INSUFFICIENT_RESERVE');
+        uint salesPrice = priceAtX(x - 1);
+        require(ethReserve >= salesPrice, 'INSUFFICIENT_RESERVE');
+         uint saleProceeds = sellPrice();
         // Burn the tokenId
         require(_isApprovedOrOwner(_msgSender(), _tokenId), 'UNAPPROVED_SELL');
         _burn(_tokenId);
         // Increment NFT reserve
         nftReserve++;
         // Divi up fees
-        uint platformShare = price.mul(platformFee).div(1000);
-        uint ownerShare = price.mul(ownerFee).div(1000);
+        uint platformShare = salesPrice.mul(platformFee).div(1000);
+        uint ownerShare = salesPrice.mul(ownerFee).div(1000);
         platformFees = platformFees.add(platformShare);
         ownerFees = ownerFees.add(ownerShare);
         // Transfer sale proceeds
-        _to.transfer(price.sub(platformShare).sub(ownerShare));
+        _to.transfer(saleProceeds);
         // Update ETH reserve
-        ethReserve = ethReserve.sub(price);
+        ethReserve = ethReserve.sub(salesPrice);
         // Update X
         x = x - 1;
-        emit Sell(msg.sender, price.sub(platformShare).sub(ownerShare), _tokenId, _to);
+        emit Sell(msg.sender, saleProceeds, _tokenId, _to);
     }
 
+    function priceAtX(uint256 _x) public view returns (uint256) {
+        return m.mul( (_x ** n).mul(decimals18) ).div(SLOPE_DENOM);
+    }
     /**
     * @dev Returns the current buy price of a single NFT
     */
     function buyPrice() public view override returns (uint256) {
-        uint256 basePrice = m.mul( (x ** n).mul(decimals18) ).div(SLOPE_DENOM);
-        return basePrice.mul(1000 + ownerFee + platformFee).div(1000);
+        uint256 basePrice = priceAtX(x);
+        uint platformShare = basePrice.mul(platformFee).div(1000);
+        uint ownerShare = basePrice.mul(ownerFee).div(1000);
+        return basePrice.add(platformShare).add(ownerShare);
     }
 
     /**
     * @dev Returns the current sell price of a single NFT
     */
     function sellPrice() public view override returns (uint256) {
-        uint256 basePrice = m.mul( (x.sub(1) ** n).mul(decimals18) ).div(SLOPE_DENOM);
-        return basePrice.mul(ownerFee + platformFee).div(1000);
+        uint256 basePrice = priceAtX(x - 1);
+        uint platformShare = basePrice.mul(platformFee).div(1000);
+        uint ownerShare = basePrice.mul(ownerFee).div(1000);
+        return basePrice.sub(platformShare).sub(ownerShare);
     }
 }

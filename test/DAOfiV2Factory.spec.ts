@@ -34,6 +34,6 @@ describe('DAOfiV2Factory', async () => {
   it('correctly estimates gas for calling createPair', async () => {
     const tx = await factory.createPair('Test NFT', 'TNFT', 'https://fake', proxy, wallet.address, 10, 1, 1, 1, 100)
     const receipt = await tx.wait()
-    expect(receipt.gasUsed).to.eq(4184273)
+    expect(receipt.gasUsed).to.eq(4187074)
   })
 })

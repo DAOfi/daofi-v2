@@ -2,7 +2,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract } from 'ethers'
 import { ethers } from 'hardhat'
-import { getPriceForX, expandTo18Decimals, expandToDecimals } from './shared/utilities'
+import { getPriceForXWithFees, getPriceForX, expandToDecimals } from './shared/utilities'
 import { pairFixture } from './shared/fixtures'
 
 const zero = ethers.BigNumber.from(0)
@@ -189,14 +189,15 @@ describe('DAOfiV2Pair test all success and revert cases', () => {
   })
 })
 
-describe.only('DAOfiV1Pair test curves with various settings', () => {
+describe('DAOfiV1Pair test curves with various settings', () => {
   beforeEach(async () => {
     wallet = (await ethers.getSigners())[0]
   })
 
   // symbol, reserve, init x, m, n, fee, pre mint
   const curveTestCases: any[][] = [
-    ['TNFT1', 10, 1, 1, 1, 10, 10]
+    ['TNFT1', 10, 1, 1, 1, 50, 10],
+    ['TNFT2', 15, 2, 1e3, 2, 50, 5]
   ]
 
   curveTestCases.forEach((testData, i) => {
@@ -214,28 +215,67 @@ describe.only('DAOfiV1Pair test curves with various settings', () => {
         testData[5]
       )).pair
       // premint
-      await pair.preMint(testData[6])
+      await expect(pair.preMint(testData[6])).to.emit(pair, 'PreMint').withArgs(testData[6])
       const balance = await pair.balanceOf(wallet.address)
       expect(balance).to.be.equal(ethers.BigNumber.from(testData[6]))
       // loop buy reserve with wallet 2
       pair = await pair.connect(wallet2)
+      let totalEthReserve = zero
+      let totalPlatfromFees = zero
+      let totalOwnerFees = zero
       for (let i = 0; i < testData[1]; ++i) {
         // check buy price
         const buyPrice = await pair.buyPrice()
-        const calcPrice = getPriceForX(testData[2] + i, testData[3], testData[4], testData[5])
+        const calcPrice = getPriceForXWithFees(testData[2] + i, testData[3], testData[4], testData[5])
         expect(buyPrice).to.be.equal(ethers.BigNumber.from(calcPrice))
         // buy
-        console.log('buy price: ' + i, buyPrice.toString())
         await expect(pair.buy(wallet2.address, { value: buyPrice })).to.emit(pair, 'Buy')
-        // check nft reserve, total supply
-        // check eth reserve, fees, buy, sell price
+          .withArgs(wallet2.address, buyPrice, testData[6] + (i + 1), wallet2.address)
+        // check nft reserve
+        const nftReserve = await pair.nftReserve()
+        expect(nftReserve).to.be.equal(ethers.BigNumber.from(testData[1] - (i + 1)))
+        // check eth reserve
+        const basePrice = ethers.BigNumber.from(getPriceForX(testData[2] + i, testData[3], testData[4]))
+        const ethReserve = await pair.ethReserve()
+        totalEthReserve = totalEthReserve.add(basePrice)
+        expect(ethReserve).to.be.equal(ethers.BigNumber.from(totalEthReserve))
+        // check fees
+        const platformFees = await pair.platformFees()
+        const ownerFees = await pair.ownerFees()
+        totalPlatfromFees = totalPlatfromFees.add(basePrice.mul(50).div(1000))
+        totalOwnerFees = totalOwnerFees.add(basePrice.mul(testData[5]).div(1000))
+        expect(platformFees).to.be.equal(totalPlatfromFees)
+        expect(ownerFees).to.be.equal(totalOwnerFees)
+      }
+      // check wallet 2 owns purchased nfts
+      const balance2 = await pair.balanceOf(wallet2.address)
+      expect(balance2).to.be.equal(ethers.BigNumber.from(testData[1]))
+      // loop sell purchased tokens with wallet 2
+      for (let i = 0; i < testData[1]; ++i) {
+        const tokenId = testData[6] + (i + 1);
+        const sellPrice = await pair.sellPrice()
+        // sell
+        await expect(pair.sell(tokenId, wallet2.address)).to.emit(pair, 'Sell')
+          .withArgs(wallet2.address, sellPrice, tokenId, wallet2.address)
+        const nftReserve = await pair.nftReserve()
+        expect(nftReserve).to.be.equal(ethers.BigNumber.from((i + 1)))
+        // check eth reserve
+        const basePrice = ethers.BigNumber.from(getPriceForX(testData[1] - i + (testData[2] - 1), testData[3], testData[4]))
+        const ethReserve = await pair.ethReserve()
+        totalEthReserve = totalEthReserve.sub(basePrice)
+        expect(ethReserve).to.be.equal(ethers.BigNumber.from(totalEthReserve))
+        // check fees
+        const platformFees = await pair.platformFees()
+        const ownerFees = await pair.ownerFees()
+        totalPlatfromFees = totalPlatfromFees.add(basePrice.mul(50).div(1000))
+        totalOwnerFees = totalOwnerFees.add(basePrice.mul(testData[5]).div(1000))
+        expect(platformFees).to.be.equal(totalPlatfromFees)
+        expect(ownerFees).to.be.equal(totalOwnerFees)
       }
 
-      // loop sell reserve with wallet 2
-        // check nft reserve, total supply
-        // check eth reserve, fees, buy, sell price
-      // signal close, close, withdraw fees owner/ platform
-        // check eth reserves, fees
+      // withdraw fees, check 0, check reserve still intact
+      // signal close, allow for buy and sell
+      // withdraw fees, withdraw reserve
     })
   })
 })
