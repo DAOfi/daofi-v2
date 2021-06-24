@@ -284,13 +284,24 @@ describe('DAOfiV1Pair test curves with various settings', () => {
       // signal close, allow for buy and sell
       pair = await pair.connect(wallet)
       await expect(pair.signalClose()).to.emit(pair, 'SignalClose')
+      // buy twice to have some resere on close
+      await expect(pair.buy(wallet.address, { value: await pair.buyPrice() })).to.emit(pair, 'Buy')
       await expect(pair.buy(wallet.address, { value: await pair.buyPrice() })).to.emit(pair, 'Buy')
       await expect(pair.sell(testData[1] + testData[6] + 1, wallet.address)).to.emit(pair, 'Sell')
-      // close market
+      // close market with non-zero reserve
       await ethers.provider.send('evm_increaseTime', [86400])
       await ethers.provider.send('evm_mine', [])
+      expect(await pair.ethReserve()).to.not.be.equal(zero)
       await expect(pair.close()).to.emit(pair, 'Close')
-      // withdraw fees, withdraw reserve
+      // reserve removed
+      expect(await pair.ethReserve()).to.be.equal(zero)
+      // withdraw fees
+      expect(await pair.ownerFees()).to.not.be.equal(zero)
+      await expect(pair.withdrawOwnerFees()).to.emit(pair, 'WithdrawOwnerFees')
+      expect(await pair.ownerFees()).to.be.equal(zero)
+      expect(await pair.platformFees()).to.not.be.equal(zero)
+      await expect(pair.withdrawPlatformFees()).to.emit(pair, 'WithdrawPlatformFees')
+      expect(await pair.platformFees()).to.be.equal(zero)
     })
   })
 })
