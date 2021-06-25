@@ -2,7 +2,7 @@
 pragma solidity =0.7.6;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import './interfaces/IDAOfiV2Pair.sol';
+import "../interfaces/IDAOfiV2NFT.sol";
 
 contract OwnableDelegateProxy {}
 
@@ -10,30 +10,11 @@ contract ProxyRegistry {
     mapping(address => OwnableDelegateProxy) public proxies;
 }
 
-contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
+contract DAOfiV2NFT is IDAOfiV2NFT, ERC721 {
     using Strings for string;
     using SafeMath for *;
 
-    uint32 private constant SLOPE_DENOM = 1000000; // slope = m / SLOPE_DENOM
-    uint32 private constant MAX_N = 3; // y = mx^n, n <= MAX_N
-    uint32 private constant MAX_OWNER_FEE = 950; // 95.0%
-
-    uint8 public constant platformFee = 50; // 5.0%
-    address payable public constant platform = 0xAD10D4F9937D743cbEb1383B1D3A3AD15Ace75D6;
-
-    uint32 public m = SLOPE_DENOM;
-    uint32 public n = 1;
-    uint32 public ownerFee = 0;
-    address payable public pairOwner = platform;
-    uint256 public nftReserve = 1;
-    uint256 public ethReserve = 0;
-    uint256 public x = 1; // initial supply must be at least 1
-    uint256 public closeDeadline = 0;
-    uint256 public ownerFees = 0;
-    uint256 public platformFees = 0;
-    uint256 public preMintSupply = 0;
-    uint256[] nftReservePool;
-    int256 nftReservePoolIndex = -1;
+    uint256 public 
 
     // opensea compat
     address public proxyRegistryAddress;
