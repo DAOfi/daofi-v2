@@ -2,7 +2,7 @@
 pragma solidity =0.7.6;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "../interfaces/IDAOfiV2NFT.sol";
+import "./interfaces/IDAOfiV2NFT.sol";
 
 contract OwnableDelegateProxy {}
 
@@ -11,15 +11,15 @@ contract ProxyRegistry {
 }
 
 contract DAOfiV2NFT is IDAOfiV2NFT, ERC721 {
-    using Strings for string;
-    using SafeMath for *;
+    using SafeMath for uint256;
 
-    uint256 public 
+    uint256 public override preMintSupply = 0;
+    uint256 public override maxSupply = 0;
+    address payable public override ownerAddress;
+    uint256 private currentTokenId = 0;
 
     // opensea compat
     address public proxyRegistryAddress;
-    uint256 private currentTokenId = 0;
-    uint256 private decimals18 = 10 ** 18;
 
     /**
     * @dev Create the NFT contract from name symbol and baseURI
@@ -28,40 +28,18 @@ contract DAOfiV2NFT is IDAOfiV2NFT, ERC721 {
         string memory _name,
         string memory _symbol,
         string memory _baseTokenURI,
+        address payable _ownerAddress,
         address _proxyAddress,
-        address payable _pairOwner,
-        uint256 _nftReserve,
-        uint256 _initX,
-        uint32 _m,
-        uint32 _n,
-        uint32 _ownerFee
+        uint256 _maxSupply
     ) ERC721(_name, _symbol) {
-        require(_initX > 0, 'ZERO_INIT_X');
-        require(_m > 0 && _m <= SLOPE_DENOM, 'INVALID_M');
-        require(_n > 0 && _n <= MAX_N, 'INVALID_N');
-        require(_ownerFee <= MAX_OWNER_FEE, 'INVALID_OWNER_FEE');
+        require(keccak256(bytes(_baseTokenURI)) != keccak256(bytes("")), "EMPTY_URI");
+        require(_ownerAddress != address(0), "ZERO_OWNER");
+        require(_proxyAddress != address(0), "ZERO_PROXY");
+        require(_maxSupply > 0, "ZERO_SUPPLY");
         _setBaseURI(_baseTokenURI);
-        nftReserve = _nftReserve;
+        ownerAddress = _ownerAddress;
         proxyRegistryAddress = _proxyAddress;
-        pairOwner = _pairOwner;
-        x = _initX;
-        m = _m;
-        n = _n;
-        ownerFee = _ownerFee;
-    }
-
-    function preMint(uint256 _count) external override {
-        require(msg.sender == pairOwner, 'OWNER_ONLY');
-        require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
-        require(ethReserve == 0 && ownerFees == 0 && platformFees == 0, 'MARKET_OPEN');
-        require(preMintSupply == 0, 'DOUBLE_PREMINT');
-        preMintSupply = _count;
-        for (uint256 i = 0; i < _count; i++) {
-            uint256 newTokenId = _getNextTokenId();
-            _mint(pairOwner, newTokenId);
-            _incrementTokenId();
-        }
-        emit PreMint(_count);
+        maxSupply = _maxSupply;
     }
 
     /**
@@ -76,7 +54,7 @@ contract DAOfiV2NFT is IDAOfiV2NFT, ERC721 {
      * @dev increments the value of _currentTokenId
      */
     function _incrementTokenId() private {
-        currentTokenId++;
+        currentTokenId = currentTokenId.add(1);
     }
 
     /**
@@ -97,127 +75,37 @@ contract DAOfiV2NFT is IDAOfiV2NFT, ERC721 {
         return super.isApprovedForAll(owner, operator);
     }
 
-    /**
-    * @dev Transfer ownership of the pair's reserves and owner fees
-    */
-    function setPairOwner(address payable _nextOwner) external override {
-        require(msg.sender == pairOwner, 'FORBIDDEN_PAIR_OWNER');
-        require(_nextOwner != address(0), 'INVALID_PAIR_OWNER');
-        pairOwner = _nextOwner;
-        emit SetPairOwner(msg.sender, pairOwner);
-    }
-
-    function signalClose() external override {
-        require(msg.sender == pairOwner, 'FORBIDDEN_SIGNAL_CLOSE');
-        require(closeDeadline == 0, 'CLOSE_ALREADY_SIGNALED');
-        closeDeadline = block.timestamp + 86400;
-        emit SignalClose(msg.sender, closeDeadline);
+    function preMint(address _to, uint256 _count) external override {
+        require(msg.sender == ownerAddress, "OWNER_ONLY");
+        require(currentTokenId == 0, "PREMINT_UNAVAILABLE");
+        require(preMintSupply == 0, "DOUBLE_PREMINT");
+        require(_count <= maxSupply, "PREMINT_EXCESS");
+        preMintSupply = _count;
+        for (uint256 i = 0; i < _count; i++) {
+            this.mint(_to);
+        }
+        emit PreMint(_to, _count);
     }
 
     /**
-    * @dev Function to close the market and retrun the ethReserve to the pair owner
+    * @dev Function to allow pair to mint new tokenId to recipient
     */
-    function close() external override {
-        require(closeDeadline != 0 && block.timestamp >= closeDeadline, 'INVALID_DEADLINE');
-        pairOwner.transfer(ethReserve);
-        emit Close(msg.sender, ethReserve);
-        ethReserve = 0;
-    }
-
-    /**
-    * @dev Function to remove fees attributed to owner.
-    * Fees for the owner are reset to 0 once called.
-    */
-    function withdrawOwnerFees() external override {
-        pairOwner.transfer(ownerFees);
-        emit WithdrawOwnerFees(msg.sender, ownerFees);
-        ownerFees = 0;
-    }
-
-    /**
-    * @dev Function to remove fees attributed to platform.
-    * Fees for the platform are reset to 0 once called.
-    */
-    function withdrawPlatformFees() external override {
-        platform.transfer(platformFees);
-        emit WithdrawPlatformFees(msg.sender, platformFees);
-        platformFees = 0;
-    }
-
-    function buy(address payable _to) external payable override returns (uint256) {
-        require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
-        require(nftReserve > 0, 'SOLD_OUT');
-        uint purchasePrice = buyPrice();
-        require(msg.value >= purchasePrice, 'INSUFFICIENT_FUNDS');
-        uint basePrice = priceAtX(x);
-        // Mint a new token to the recipient
+    function mint(address _to) external override returns (uint256) {
+        require(msg.sender == ownerAddress, "OWNER_ONLY");
         uint256 newTokenId = _getNextTokenId();
+        require(newTokenId <= maxSupply, "MAX_SUPPLY");
         _mint(_to, newTokenId);
         _incrementTokenId();
-        // Decrement NFT reserve
-        nftReserve--;
-        // Refund excess ETH
-        if (msg.value > purchasePrice) {
-            _to.transfer(msg.value.sub(purchasePrice));
-        }
-        // Divi up fees
-        uint platformShare = basePrice.mul(platformFee).div(1000);
-        uint ownerShare = basePrice.mul(ownerFee).div(1000);
-        platformFees = platformFees.add(platformShare);
-        ownerFees = ownerFees.add(ownerShare);
-        // Update ETH reserve
-        ethReserve = ethReserve.add(basePrice);
-        // Update X
-        x = x + 1;
-        emit Buy(msg.sender, purchasePrice, newTokenId, _to);
         return newTokenId;
     }
 
-    function sell(uint256 _tokenId, address payable _to) external override {
-        require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
-        require(x > 1, 'INVALID_X');
-        uint salesPrice = priceAtX(x - 1);
-        require(ethReserve >= salesPrice, 'INSUFFICIENT_RESERVE');
-         uint saleProceeds = sellPrice();
-        // Burn the tokenId
-        require(_isApprovedOrOwner(_msgSender(), _tokenId), 'UNAPPROVED_SELL');
-        _burn(_tokenId);
-        // Increment NFT reserve
-        nftReserve++;
-        // Divi up fees
-        uint platformShare = salesPrice.mul(platformFee).div(1000);
-        uint ownerShare = salesPrice.mul(ownerFee).div(1000);
-        platformFees = platformFees.add(platformShare);
-        ownerFees = ownerFees.add(ownerShare);
-        // Transfer sale proceeds
-        _to.transfer(saleProceeds);
-        // Update ETH reserve
-        ethReserve = ethReserve.sub(salesPrice);
-        // Update X
-        x = x - 1;
-        emit Sell(msg.sender, saleProceeds, _tokenId, _to);
-    }
-
-    function priceAtX(uint256 _x) public view returns (uint256) {
-        return m.mul( (_x ** n).mul(decimals18) ).div(SLOPE_DENOM);
-    }
     /**
-    * @dev Returns the current buy price of a single NFT
+    * @dev Transfer ownership of the NFT mint functionality
     */
-    function buyPrice() public view override returns (uint256) {
-        uint256 basePrice = priceAtX(x);
-        uint platformShare = basePrice.mul(platformFee).div(1000);
-        uint ownerShare = basePrice.mul(ownerFee).div(1000);
-        return basePrice.add(platformShare).add(ownerShare);
-    }
-
-    /**
-    * @dev Returns the current sell price of a single NFT
-    */
-    function sellPrice() public view override returns (uint256) {
-        uint256 basePrice = priceAtX(x - 1);
-        uint platformShare = basePrice.mul(platformFee).div(1000);
-        uint ownerShare = basePrice.mul(ownerFee).div(1000);
-        return basePrice.sub(platformShare).sub(ownerShare);
+    function setOwner(address payable _nextOwner) external {
+        require(msg.sender == ownerAddress, "OWNER_ONLY");
+        require(_nextOwner != address(0), "ZERO_OWNER");
+        ownerAddress = _nextOwner;
+        emit SetOwner(msg.sender, ownerAddress);
     }
 }

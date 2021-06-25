@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.7.6;
 
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol"
+interface IDAOfiV2NFT {
+    event PreMint( address indexed to, uint256 amount);
+    event SetOwner(address indexed sender, address indexed newOwner);
 
-interface IDAOfiV2NFT is IERC721 {
-    event PreMint(uint256 amount);
-
-    function mint(address to, uint256 tokenId) external;
-    function preMint(uint256 count) external;
+    function ownerAddress() external view returns (address payable);
+    function preMintSupply() external view returns (uint256);
+    function maxSupply() external view returns (uint256);
+    function preMint(address to, uint256 count) external;
+    function mint(address to) external returns (uint256);
 }

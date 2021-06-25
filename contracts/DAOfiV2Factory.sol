@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.7.6;
 
+import "@openzeppelin/contracts/token/ERC721/IERC721Metadata.sol";
 import './interfaces/IDAOfiV2Factory.sol';
+import "./interfaces/IDAOfiV2NFT.sol";
 import './DAOfiV2Pair.sol';
 
 contract DAOfiV2Factory is IDAOfiV2Factory {
@@ -21,39 +23,30 @@ contract DAOfiV2Factory is IDAOfiV2Factory {
     }
 
     function createPair(
-        string memory _name,
-        string memory _symbol,
-        string memory _baseTokenURI,
-        address _proxyAddress,
-        address payable _pairOwner,
-        uint256 _nftReserve,
+        address _nftAddress,
         uint256 _initX,
         uint32 _m,
         uint32 _n,
         uint32 _ownerFee
     ) external override returns (address _pair) {
-        require(_pairOwner != address(0), 'ZERO_OWNER_ADDRESS');
-        require(keccak256(bytes(_symbol)) != keccak256(bytes("")), 'EMPTY_SYMBOL');
-        require(getPair[_pairOwner][_symbol] == address(0), 'PAIR_EXISTS');
+        address owner = IDAOfiV2NFT(_nftAddress).ownerAddress();
+        string memory name = IERC721Metadata(_nftAddress).name();
+        string memory symbol = IERC721Metadata(_nftAddress).symbol();
+        require(getPair[owner][symbol] == address(0), 'PAIR_EXISTS');
         _pair = address(new DAOfiV2Pair(
-            _name,
-            _symbol,
-            _baseTokenURI,
-            _proxyAddress,
-            _pairOwner,
-            _nftReserve,
+            _nftAddress,
             _initX,
             _m,
             _n,
             _ownerFee
         ));
-        getPair[_pairOwner][_symbol] = _pair;
+        getPair[owner][symbol] = _pair;
         allPairs.push(_pair);
         emit PairCreated(
             _pair,
-            _name,
-            _symbol,
-            _pairOwner,
+            name,
+            symbol,
+            owner,
             allPairs.length
         );
     }

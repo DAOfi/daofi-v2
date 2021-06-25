@@ -13,12 +13,7 @@ interface IDAOfiV2Factory {
     function allPairs(uint) external view returns (address _pair);
     function allPairsLength() external view returns (uint);
     function createPair(
-        string memory _name,
-        string memory _symbol,
-        string memory _baseTokenURI,
-        address _proxyAddress,
-        address payable _pairOwner,
-        uint256 _nftReserve,
+        address _nftAddress,
         uint256 _initX,
         uint32 _m,
         uint32 _n,

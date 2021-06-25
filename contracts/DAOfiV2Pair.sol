@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.7.6;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import './interfaces/IDAOfiV2Pair.sol';
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "./interfaces/IDAOfiV2NFT.sol";
+import "./interfaces/IDAOfiV2Pair.sol";
 
-contract OwnableDelegateProxy {}
-
-contract ProxyRegistry {
-    mapping(address => OwnableDelegateProxy) public proxies;
-}
-
-contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
-    using Strings for string;
+contract DAOfiV2Pair is IDAOfiV2Pair {
     using SafeMath for *;
 
     uint32 private constant SLOPE_DENOM = 1000000; // slope = m / SLOPE_DENOM
@@ -20,115 +15,45 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
 
     uint8 public constant platformFee = 50; // 5.0%
     address payable public constant platform = 0xAD10D4F9937D743cbEb1383B1D3A3AD15Ace75D6;
+    address public nft;
 
     uint32 public m = SLOPE_DENOM;
     uint32 public n = 1;
     uint32 public ownerFee = 0;
-    address payable public pairOwner = platform;
-    uint256 public nftReserve = 1;
     uint256 public ethReserve = 0;
-    uint256 public x = 1; // initial supply must be at least 1
+    uint256 public x = 1; // start curve at x = 1
     uint256 public closeDeadline = 0;
     uint256 public ownerFees = 0;
     uint256 public platformFees = 0;
-    uint256 public preMintSupply = 0;
-    uint256[] nftReservePool;
-    int256 nftReservePoolIndex = -1;
-
-    // opensea compat
-    address public proxyRegistryAddress;
-    uint256 private currentTokenId = 0;
+    uint256[] nftReservePool; // append sold token ids and resell before minting
+    uint256 nftReservePoolIndex = 0; // keep track of the next token id to sell from the pool
     uint256 private decimals18 = 10 ** 18;
 
     /**
-    * @dev Create the NFT contract from name symbol and baseURI
+    * @dev Create the Pair contract from NFT and curve params
     */
     constructor(
-        string memory _name,
-        string memory _symbol,
-        string memory _baseTokenURI,
-        address _proxyAddress,
-        address payable _pairOwner,
-        uint256 _nftReserve,
+        address _nftAddress,
         uint256 _initX,
         uint32 _m,
         uint32 _n,
         uint32 _ownerFee
-    ) ERC721(_name, _symbol) {
-        require(_initX > 0, 'ZERO_INIT_X');
-        require(_m > 0 && _m <= SLOPE_DENOM, 'INVALID_M');
-        require(_n > 0 && _n <= MAX_N, 'INVALID_N');
-        require(_ownerFee <= MAX_OWNER_FEE, 'INVALID_OWNER_FEE');
-        _setBaseURI(_baseTokenURI);
-        nftReserve = _nftReserve;
-        proxyRegistryAddress = _proxyAddress;
-        pairOwner = _pairOwner;
+    ) {
+        require(_nftAddress != address(0), "ZERO_NFT");
+        require(_initX > 0, "ZERO_INIT_X");
+        require(_m > 0 && _m <= SLOPE_DENOM, "INVALID_M");
+        require(_n > 0 && _n <= MAX_N, "INVALID_N");
+        require(_ownerFee <= MAX_OWNER_FEE, "INVALID_OWNER_FEE");
+        nft = _nftAddress;
         x = _initX;
         m = _m;
         n = _n;
         ownerFee = _ownerFee;
     }
 
-    function preMint(uint256 _count) external override {
-        require(msg.sender == pairOwner, 'OWNER_ONLY');
-        require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
-        require(ethReserve == 0 && ownerFees == 0 && platformFees == 0, 'MARKET_OPEN');
-        require(preMintSupply == 0, 'DOUBLE_PREMINT');
-        preMintSupply = _count;
-        for (uint256 i = 0; i < _count; i++) {
-            uint256 newTokenId = _getNextTokenId();
-            _mint(pairOwner, newTokenId);
-            _incrementTokenId();
-        }
-        emit PreMint(_count);
-    }
-
-    /**
-     * @dev calculates the next token ID based on value of currentTokenId
-     * @return uint256 for the next token ID
-     */
-    function _getNextTokenId() private view returns (uint256) {
-        return currentTokenId.add(1);
-    }
-
-    /**
-     * @dev increments the value of _currentTokenId
-     */
-    function _incrementTokenId() private {
-        currentTokenId++;
-    }
-
-    /**
-     * Override isApprovedForAll to whitelist user's OpenSea proxy accounts to enable gas-less listings.
-     */
-    function isApprovedForAll(address owner, address operator)
-        public
-        view
-        override
-        returns (bool)
-    {
-        // Whitelist OpenSea proxy contract for easy trading.
-        ProxyRegistry proxyRegistry = ProxyRegistry(proxyRegistryAddress);
-        if (address(proxyRegistry.proxies(owner)) == operator) {
-            return true;
-        }
-
-        return super.isApprovedForAll(owner, operator);
-    }
-
-    /**
-    * @dev Transfer ownership of the pair's reserves and owner fees
-    */
-    function setPairOwner(address payable _nextOwner) external override {
-        require(msg.sender == pairOwner, 'FORBIDDEN_PAIR_OWNER');
-        require(_nextOwner != address(0), 'INVALID_PAIR_OWNER');
-        pairOwner = _nextOwner;
-        emit SetPairOwner(msg.sender, pairOwner);
-    }
-
     function signalClose() external override {
-        require(msg.sender == pairOwner, 'FORBIDDEN_SIGNAL_CLOSE');
-        require(closeDeadline == 0, 'CLOSE_ALREADY_SIGNALED');
+        require(msg.sender == IDAOfiV2NFT(nft).ownerAddress(), "FORBIDDEN_SIGNAL_CLOSE");
+        require(closeDeadline == 0, "CLOSE_ALREADY_SIGNALED");
         closeDeadline = block.timestamp + 86400;
         emit SignalClose(msg.sender, closeDeadline);
     }
@@ -137,8 +62,8 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     * @dev Function to close the market and retrun the ethReserve to the pair owner
     */
     function close() external override {
-        require(closeDeadline != 0 && block.timestamp >= closeDeadline, 'INVALID_DEADLINE');
-        pairOwner.transfer(ethReserve);
+        require(closeDeadline != 0 && block.timestamp >= closeDeadline, "INVALID_DEADLINE");
+        IDAOfiV2NFT(nft).ownerAddress().transfer(ethReserve);
         emit Close(msg.sender, ethReserve);
         ethReserve = 0;
     }
@@ -148,7 +73,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     * Fees for the owner are reset to 0 once called.
     */
     function withdrawOwnerFees() external override {
-        pairOwner.transfer(ownerFees);
+        IDAOfiV2NFT(nft).ownerAddress().transfer(ownerFees);
         emit WithdrawOwnerFees(msg.sender, ownerFees);
         ownerFees = 0;
     }
@@ -163,18 +88,20 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         platformFees = 0;
     }
 
-    function buy(address payable _to) external payable override returns (uint256) {
-        require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
-        require(nftReserve > 0, 'SOLD_OUT');
+    function buy(address payable _to) external payable override returns (uint256 tokenId) {
+        require(closeDeadline == 0 || block.timestamp < closeDeadline, "MARKET_CLOSED");
         uint purchasePrice = buyPrice();
-        require(msg.value >= purchasePrice, 'INSUFFICIENT_FUNDS');
+        require(msg.value >= purchasePrice, "INSUFFICIENT_FUNDS");
         uint basePrice = priceAtX(x);
-        // Mint a new token to the recipient
-        uint256 newTokenId = _getNextTokenId();
-        _mint(_to, newTokenId);
-        _incrementTokenId();
-        // Decrement NFT reserve
-        nftReserve--;
+        // Determine if we can sell a token id from the reserve pool
+        if (nftReservePoolIndex < nftReservePool.length) {
+            tokenId = nftReservePool[nftReservePoolIndex];
+            IERC721(nft).safeTransferFrom(address(this), _to, tokenId);
+            nftReservePoolIndex = nftReservePoolIndex.add(1);
+        } else {
+            // Mint a new token to the recipient (reverts if no supply left)
+            tokenId = IDAOfiV2NFT(nft).mint(_to);
+        }
         // Refund excess ETH
         if (msg.value > purchasePrice) {
             _to.transfer(msg.value.sub(purchasePrice));
@@ -188,21 +115,19 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         ethReserve = ethReserve.add(basePrice);
         // Update X
         x = x + 1;
-        emit Buy(msg.sender, purchasePrice, newTokenId, _to);
-        return newTokenId;
+        emit Buy(msg.sender, purchasePrice, tokenId, _to);
     }
 
     function sell(uint256 _tokenId, address payable _to) external override {
-        require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
-        require(x > 1, 'INVALID_X');
+        require(closeDeadline == 0 || block.timestamp < closeDeadline, "MARKET_CLOSED");
+        require(x > 1, "INVALID_X");
         uint salesPrice = priceAtX(x - 1);
-        require(ethReserve >= salesPrice, 'INSUFFICIENT_RESERVE');
+        require(ethReserve >= salesPrice, "INSUFFICIENT_RESERVE");
          uint saleProceeds = sellPrice();
-        // Burn the tokenId
-        require(_isApprovedOrOwner(_msgSender(), _tokenId), 'UNAPPROVED_SELL');
-        _burn(_tokenId);
-        // Increment NFT reserve
-        nftReserve++;
+        // Send the tokenId to the pair and add to the reserve pool
+        require(IERC721(nft).ownerOf(_tokenId) == msg.sender, "UNAPPROVED_SELL");
+        IERC721(nft).safeTransferFrom(msg.sender, address(this), _tokenId);
+        nftReservePool.push(_tokenId);
         // Divi up fees
         uint platformShare = salesPrice.mul(platformFee).div(1000);
         uint ownerShare = salesPrice.mul(ownerFee).div(1000);
