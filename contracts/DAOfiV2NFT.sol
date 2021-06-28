@@ -2,6 +2,7 @@
 pragma solidity =0.7.6;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import 'hardhat/console.sol';
 import "./interfaces/IDAOfiV2NFT.sol";
 
 contract OwnableDelegateProxy {}
@@ -54,7 +55,7 @@ contract DAOfiV2NFT is IDAOfiV2NFT, ERC721 {
      * @dev increments the value of _currentTokenId
      */
     function _incrementTokenId() private {
-        currentTokenId = currentTokenId.add(1);
+        currentTokenId++;
     }
 
     /**
@@ -75,28 +76,30 @@ contract DAOfiV2NFT is IDAOfiV2NFT, ERC721 {
         return super.isApprovedForAll(owner, operator);
     }
 
-    function preMint(address _to, uint256 _count) external override {
-        require(msg.sender == ownerAddress, "OWNER_ONLY");
-        require(currentTokenId == 0, "PREMINT_UNAVAILABLE");
-        require(preMintSupply == 0, "DOUBLE_PREMINT");
-        require(_count <= maxSupply, "PREMINT_EXCESS");
-        preMintSupply = _count;
-        for (uint256 i = 0; i < _count; i++) {
-            this.mint(_to);
-        }
-        emit PreMint(_to, _count);
-    }
-
     /**
     * @dev Function to allow pair to mint new tokenId to recipient
     */
     function mint(address _to) external override returns (uint256) {
         require(msg.sender == ownerAddress, "OWNER_ONLY");
         uint256 newTokenId = _getNextTokenId();
-        require(newTokenId <= maxSupply, "MAX_SUPPLY");
+        require(newTokenId <= maxSupply, "MAX_MINT");
         _mint(_to, newTokenId);
         _incrementTokenId();
         return newTokenId;
+    }
+
+    function preMint(address _to, uint256 _count) external override {
+        require(msg.sender == ownerAddress, "OWNER_ONLY");
+        require(preMintSupply == 0, "DOUBLE_PREMINT");
+        require(currentTokenId == 0, "PREMINT_UNAVAILABLE");
+        require(_count <= maxSupply, "PREMINT_EXCESS");
+        preMintSupply = _count;
+        for (uint256 i = 0; i < _count; i++) {
+            uint256 newTokenId = _getNextTokenId();
+            _mint(_to, newTokenId);
+            _incrementTokenId();
+        }
+        emit PreMint(_to, _count);
     }
 
     /**
