@@ -1,6 +1,4 @@
-import { ethers } from 'ethers'
-import DAOfiV2Factory from '../build/contracts/DAOfiV2Factory.sol/DAOfiV2Factory.json'
-import DAOfiV2Pair from '../build/contracts/DAOfiV2Pair.sol/DAOfiV2Pair.json'
+import { ethers } from 'hardhat'
 
 async function main() {
   const provider = new ethers.providers.JsonRpcProvider(
@@ -9,14 +7,9 @@ async function main() {
   const wallet = new ethers.Wallet(process.env.PRIVATE_KEY || '', provider)
   console.log('Wallet:', wallet.address)
 
-  const factory = new ethers.Contract(
-    process.env.FACTORY || '0x4e628C710f6a76CF695FB01Dc65dc7DE74D461e9',
-    DAOfiV2Factory.abi,
-    wallet
-  )
-  console.log('Factory:', factory.address)
+  const DAOfiV2Pair = await ethers.getContractFactory('DAOfiV2Pair')
 
-  const pairTx = await factory.createPair(
+  const pair = await DAOfiV2Pair.deploy(
     'Communifty Test NFT',
     'TESTNFT',
     'https://api.hodlink.io/4_20_21/',
@@ -33,10 +26,7 @@ async function main() {
     }
   )
 
-  await pairTx.wait()
-  const pairAddr = await factory.getPair(wallet.address, 'TESTNFT')
-  console.log('Pair created:', pairAddr)
-  const pair = new ethers.Contract(pairAddr, DAOfiV2Pair.abi, wallet)
+  console.log('Pair:', pair.address)
 
   await pair.preMint(10, {
     gasLimit: 8000000,
