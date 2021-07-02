@@ -287,7 +287,7 @@ describe('DAOfiV1Pair test curves with various settings', () => {
       // buy twice to have some resere on close
       await expect(pair.buy(wallet.address, { value: await pair.buyPrice() })).to.emit(pair, 'Buy')
       await expect(pair.buy(wallet.address, { value: await pair.buyPrice() })).to.emit(pair, 'Buy')
-      await expect(pair.sell(testData[0] + testData[5], wallet.address)).to.emit(pair, 'Sell')
+      await expect(pair.sell(testData[5] + 1, wallet.address)).to.emit(pair, 'Sell')
       // close market with non-zero reserve
       await ethers.provider.send('evm_increaseTime', [86400])
       await ethers.provider.send('evm_mine', [])

@@ -172,7 +172,8 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         // Determine if we can sell a token id from the reserve pool
         if (nftReservePoolIndex < nftReservePool.length) {
             tokenId = nftReservePool[nftReservePoolIndex];
-            transferFrom(address(this), _to, tokenId);
+            require(_isApprovedOrOwner(address(this), tokenId), 'UNAPPROVED_BUY');
+             _transfer(address(this), _to, tokenId);
             nftReservePoolIndex++;
         } else {
             // Mint a new token to the recipient
@@ -206,7 +207,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
          uint saleProceeds = sellPrice();
         // Send the token to this contract and add to reserve pool
         require(_isApprovedOrOwner(msg.sender, _tokenId), 'UNAPPROVED_SELL');
-        transferFrom(msg.sender, address(this), _tokenId);
+        _transfer(msg.sender, address(this), _tokenId);
         nftReservePool.push(_tokenId);
         // Increment NFT reserve
         nftReserve++;
