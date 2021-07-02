@@ -2,7 +2,7 @@
 pragma solidity =0.7.6;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import './interfaces/IDAOfiV2Pair.sol';
+import "./interfaces/IDAOfiV2Pair.sol";
 
 contract OwnableDelegateProxy {}
 
@@ -32,6 +32,8 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     uint256 public ownerFees = 0;
     uint256 public platformFees = 0;
     uint256 public preMintSupply = 0;
+    uint256[] nftReservePool; // append sold token ids and resell before minting
+    uint256 nftReservePoolIndex = 0; // keep track of the next token id to sell from the pool
 
     // opensea compat
     address public proxyRegistryAddress;
@@ -161,16 +163,23 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         platformFees = 0;
     }
 
-    function buy(address payable _to) external payable override returns (uint256) {
+    function buy(address payable _to) external payable override returns (uint256 tokenId) {
         require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
         require(nftReserve > 0, 'SOLD_OUT');
         uint purchasePrice = buyPrice();
         require(msg.value >= purchasePrice, 'INSUFFICIENT_FUNDS');
         uint basePrice = priceAtX(x);
-        // Mint a new token to the recipient
-        uint256 newTokenId = _getNextTokenId();
-        _mint(_to, newTokenId);
-        _incrementTokenId();
+        // Determine if we can sell a token id from the reserve pool
+        if (nftReservePoolIndex < nftReservePool.length) {
+            tokenId = nftReservePool[nftReservePoolIndex];
+            transferFrom(address(this), _to, tokenId);
+            nftReservePoolIndex++;
+        } else {
+            // Mint a new token to the recipient
+            tokenId = _getNextTokenId();
+            _mint(_to, tokenId);
+            _incrementTokenId();
+        }
         // Decrement NFT reserve
         nftReserve--;
         // Refund excess ETH
@@ -186,8 +195,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         ethReserve = ethReserve.add(basePrice);
         // Update X
         x = x + 1;
-        emit Buy(msg.sender, purchasePrice, newTokenId, _to);
-        return newTokenId;
+        emit Buy(msg.sender, purchasePrice, tokenId, _to);
     }
 
     function sell(uint256 _tokenId, address payable _to) external override {
@@ -196,9 +204,10 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         uint salesPrice = priceAtX(x - 1);
         require(ethReserve >= salesPrice, 'INSUFFICIENT_RESERVE');
          uint saleProceeds = sellPrice();
-        // Burn the tokenId
-        require(_isApprovedOrOwner(_msgSender(), _tokenId), 'UNAPPROVED_SELL');
-        _burn(_tokenId);
+        // Send the token to this contract and add to reserve pool
+        require(_isApprovedOrOwner(msg.sender, _tokenId), 'UNAPPROVED_SELL');
+        transferFrom(msg.sender, address(this), _tokenId);
+        nftReservePool.push(_tokenId);
         // Increment NFT reserve
         nftReserve++;
         // Divi up fees

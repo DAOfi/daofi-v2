@@ -1,9 +1,8 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
-import { Contract } from 'ethers'
+import { Contract, ContractFactory } from 'ethers'
 import { ethers } from 'hardhat'
-import { getPriceForXWithFees, getPriceForX, expandToDecimals } from './shared/utilities'
-import { pairFixture } from './shared/fixtures'
+import { getPriceForXWithFees, getPriceForX } from './shared/utilities'
 
 const zero = ethers.BigNumber.from(0)
 const proxy = '0xf57b2c51ded3a29e6891aba85459d600256cf317'
@@ -19,17 +18,17 @@ const defaults = [
   100, // owner fee
 ]
 
-let factory: Contract
+let Pair: ContractFactory
 let pair: Contract
 let wallet: SignerWithAddress
 
 describe('DAOfiV2Pair test all success and revert cases', () => {
   beforeEach(async () => {
+    Pair = await ethers.getContractFactory('DAOfiV2Pair')
     wallet = (await ethers.getSigners())[0]
   })
 
   it('reverts for any bad parameter given to constructor', async () => {
-    const Pair = await ethers.getContractFactory('DAOfiV2Pair')
     await expect(Pair.deploy(name, symbol, baseURI, proxy, wallet.address, 10, 0, maxM, 1, 100)).to.be.revertedWith(
       'ZERO_INIT_X'
     )
@@ -53,7 +52,7 @@ describe('DAOfiV2Pair test all success and revert cases', () => {
   it('will allow preMint and revert preMint in all conditions', async () => {
     const wallet2 = (await ethers.getSigners())[1]
     // create normal pair
-    pair = (await pairFixture(wallet, name, symbol, baseURI, ...defaults)).pair
+    pair = await Pair.deploy(name, symbol, baseURI, proxy, wallet.address, ...defaults)
     // attempt to preMint from wallet 2
     pair = await pair.connect(wallet2)
     await expect(pair.preMint(40)).to.be.revertedWith('OWNER_ONLY')
@@ -79,13 +78,13 @@ describe('DAOfiV2Pair test all success and revert cases', () => {
 
   it('will quantify gas cost for preMint', async () => {
     // create normal pair
-    pair = (await pairFixture(wallet, name, symbol, baseURI, ...defaults)).pair
+    pair = await Pair.deploy(name, symbol, baseURI, proxy, wallet.address, ...defaults)
     // successfully preMint 1
     let tx = await pair.preMint(1)
     let receipt = await tx.wait()
     expect(receipt.gasUsed).to.eq(219596)
     // create normal pair
-    pair = (await pairFixture(wallet, name, symbol, baseURI, ...defaults)).pair
+    pair = await Pair.deploy(name, symbol, baseURI, proxy, wallet.address, ...defaults)
     // successfully preMint 2
     tx = await pair.preMint(2)
     receipt = await tx.wait()
@@ -95,7 +94,7 @@ describe('DAOfiV2Pair test all success and revert cases', () => {
   it('will properly allow for switching pair owner and revert for bad params', async () => {
     const wallet2 = (await ethers.getSigners())[1]
     const wallet3 = (await ethers.getSigners())[2]
-    pair = (await pairFixture(wallet, name, symbol, baseURI, 10, 1, maxM, 1, 100)).pair
+    pair = await Pair.deploy(name, symbol, baseURI, proxy, wallet.address, ...defaults)
     // owner is the initial wallet in this case, switch wallet to test restriction
     pair = await pair.connect(wallet2)
     await expect(pair.setPairOwner(wallet3.address)).to.be.revertedWith('FORBIDDEN_PAIR_OWNER')
@@ -111,7 +110,7 @@ describe('DAOfiV2Pair test all success and revert cases', () => {
 
   it('will allow for pair owner to signal close and revert for invalid attempts', async () => {
     const wallet2 = (await ethers.getSigners())[1]
-    pair = (await pairFixture(wallet, name, symbol, baseURI, 10, 1, maxM, 1, 100)).pair
+    pair = await Pair.deploy(name, symbol, baseURI, proxy, wallet.address, ...defaults)
     // owner is the initial wallet in this case, switch wallet to test restriction
     pair = await pair.connect(wallet2)
     await expect(pair.signalClose()).to.be.revertedWith('FORBIDDEN_SIGNAL_CLOSE')
@@ -126,7 +125,7 @@ describe('DAOfiV2Pair test all success and revert cases', () => {
 
   it('will allow for any caller to close the market past signal deadline, or otherwise revert', async () => {
     const wallet2 = (await ethers.getSigners())[1]
-    pair = (await pairFixture(wallet, name, symbol, baseURI, 10, 1, maxM, 1, 100)).pair
+    pair = await Pair.deploy(name, symbol, baseURI, proxy, wallet.address, ...defaults)
     // attempt close, no signal
     await expect(pair.close()).to.be.revertedWith('INVALID_DEADLINE')
     // successfully signal close
@@ -143,14 +142,14 @@ describe('DAOfiV2Pair test all success and revert cases', () => {
 
   it('will revert buy calls with invalid params supplied', async () => {
     // create normal pair
-    pair = (await pairFixture(wallet, name, symbol, baseURI, ...defaults)).pair
+    pair = await Pair.deploy(name, symbol, baseURI, proxy, wallet.address, ...defaults)
     // insufficient price
     const buyPrice = await pair.buyPrice()
     await expect(pair.buy(wallet.address)).to.be.revertedWith('INSUFFICIENT_FUNDS')
     // create pair with supply 1
     const params = [...defaults]
     params[0] = 1
-    pair = (await pairFixture(wallet, name, symbol, baseURI, ...params)).pair
+    pair = await Pair.deploy(name, symbol, baseURI, proxy, wallet.address, ...params)
     // successfully buy 1
     await expect(pair.buy(wallet.address, { value: buyPrice })).to.emit(pair, 'Buy')
     // sold out
@@ -167,7 +166,7 @@ describe('DAOfiV2Pair test all success and revert cases', () => {
   it('will revert sell calls with invalid params supplied', async () => {
     const wallet2 = (await ethers.getSigners())[1]
     // create normal pair
-    pair = (await pairFixture(wallet, name, symbol, baseURI, ...defaults)).pair
+    pair = await Pair.deploy(name, symbol, baseURI, proxy, wallet.address, ...defaults)
     // attempt to sell before buying
     await expect(pair.sell(1, wallet.address)).to.be.revertedWith('INVALID_X')
     // successfully buy 1
@@ -194,48 +193,49 @@ describe('DAOfiV1Pair test curves with various settings', () => {
     wallet = (await ethers.getSigners())[0]
   })
 
-  // symbol, reserve, init x, m, n, fee, pre mint
+  // reserve, init x, m, n, fee, pre mint
   const curveTestCases: any[][] = [
-    ['TNFT1', 10, 1, 1, 1, 50, 10],
-    ['TNFT2', 15, 2, 1e3, 2, 50, 5]
+    [10, 1, 1, 1, 50, 10],
+    [15, 2, 1e3, 2, 50, 5]
   ]
 
   curveTestCases.forEach((testData, i) => {
     it(`case: ${i}`, async () => {
       const wallet2 = (await ethers.getSigners())[1]
-      pair = (await pairFixture(
-        wallet,
+      pair = await Pair.deploy(
         name,
-        testData[0],
+        symbol,
         baseURI,
+        proxy,
+        wallet.address,
+        testData[0],
         testData[1],
         testData[2],
         testData[3],
-        testData[4],
-        testData[5]
-      )).pair
+        testData[4]
+      )
       // premint
-      await expect(pair.preMint(testData[6])).to.emit(pair, 'PreMint').withArgs(testData[6])
+      await expect(pair.preMint(testData[5])).to.emit(pair, 'PreMint').withArgs(testData[5])
       const balance = await pair.balanceOf(wallet.address)
-      expect(balance).to.be.equal(ethers.BigNumber.from(testData[6]))
+      expect(balance).to.be.equal(ethers.BigNumber.from(testData[5]))
       // loop buy reserve with wallet 2
       pair = await pair.connect(wallet2)
       let totalEthReserve = zero
       let totalPlatfromFees = zero
       let totalOwnerFees = zero
-      for (let i = 0; i < testData[1]; ++i) {
+      for (let i = 0; i < testData[0]; ++i) {
         // check buy price
         const buyPrice = await pair.buyPrice()
-        const calcPrice = getPriceForXWithFees(testData[2] + i, testData[3], testData[4], testData[5])
+        const calcPrice = getPriceForXWithFees(testData[1] + i, testData[2], testData[3], testData[4])
         expect(buyPrice).to.be.equal(ethers.BigNumber.from(calcPrice))
         // buy
         await expect(pair.buy(wallet2.address, { value: buyPrice })).to.emit(pair, 'Buy')
-          .withArgs(wallet2.address, buyPrice, testData[6] + (i + 1), wallet2.address)
+          .withArgs(wallet2.address, buyPrice, testData[5] + (i + 1), wallet2.address)
         // check nft reserve
         const nftReserve = await pair.nftReserve()
-        expect(nftReserve).to.be.equal(ethers.BigNumber.from(testData[1] - (i + 1)))
+        expect(nftReserve).to.be.equal(ethers.BigNumber.from(testData[0] - (i + 1)))
         // check eth reserve
-        const basePrice = ethers.BigNumber.from(getPriceForX(testData[2] + i, testData[3], testData[4]))
+        const basePrice = ethers.BigNumber.from(getPriceForX(testData[1] + i, testData[2], testData[3]))
         const ethReserve = await pair.ethReserve()
         totalEthReserve = totalEthReserve.add(basePrice)
         expect(ethReserve).to.be.equal(ethers.BigNumber.from(totalEthReserve))
@@ -243,16 +243,16 @@ describe('DAOfiV1Pair test curves with various settings', () => {
         const platformFees = await pair.platformFees()
         const ownerFees = await pair.ownerFees()
         totalPlatfromFees = totalPlatfromFees.add(basePrice.mul(50).div(1000))
-        totalOwnerFees = totalOwnerFees.add(basePrice.mul(testData[5]).div(1000))
+        totalOwnerFees = totalOwnerFees.add(basePrice.mul(testData[4]).div(1000))
         expect(platformFees).to.be.equal(totalPlatfromFees)
         expect(ownerFees).to.be.equal(totalOwnerFees)
       }
       // check wallet 2 owns purchased nfts
       const balance2 = await pair.balanceOf(wallet2.address)
-      expect(balance2).to.be.equal(ethers.BigNumber.from(testData[1]))
+      expect(balance2).to.be.equal(ethers.BigNumber.from(testData[0]))
       // loop sell purchased tokens with wallet 2
-      for (let i = 0; i < testData[1]; ++i) {
-        const tokenId = testData[6] + (i + 1);
+      for (let i = 0; i < testData[0]; ++i) {
+        const tokenId = testData[5] + (i + 1);
         const sellPrice = await pair.sellPrice()
         // sell
         await expect(pair.sell(tokenId, wallet2.address)).to.emit(pair, 'Sell')
@@ -260,7 +260,7 @@ describe('DAOfiV1Pair test curves with various settings', () => {
         const nftReserve = await pair.nftReserve()
         expect(nftReserve).to.be.equal(ethers.BigNumber.from((i + 1)))
         // check eth reserve
-        const basePrice = ethers.BigNumber.from(getPriceForX(testData[1] - i + (testData[2] - 1), testData[3], testData[4]))
+        const basePrice = ethers.BigNumber.from(getPriceForX(testData[0] - i + (testData[1] - 1), testData[2], testData[3]))
         const ethReserve = await pair.ethReserve()
         totalEthReserve = totalEthReserve.sub(basePrice)
         expect(ethReserve).to.be.equal(ethers.BigNumber.from(totalEthReserve))
@@ -268,7 +268,7 @@ describe('DAOfiV1Pair test curves with various settings', () => {
         const platformFees = await pair.platformFees()
         const ownerFees = await pair.ownerFees()
         totalPlatfromFees = totalPlatfromFees.add(basePrice.mul(50).div(1000))
-        totalOwnerFees = totalOwnerFees.add(basePrice.mul(testData[5]).div(1000))
+        totalOwnerFees = totalOwnerFees.add(basePrice.mul(testData[4]).div(1000))
         expect(platformFees).to.be.equal(totalPlatfromFees)
         expect(ownerFees).to.be.equal(totalOwnerFees)
       }
@@ -287,7 +287,7 @@ describe('DAOfiV1Pair test curves with various settings', () => {
       // buy twice to have some resere on close
       await expect(pair.buy(wallet.address, { value: await pair.buyPrice() })).to.emit(pair, 'Buy')
       await expect(pair.buy(wallet.address, { value: await pair.buyPrice() })).to.emit(pair, 'Buy')
-      await expect(pair.sell(testData[1] + testData[6] + 1, wallet.address)).to.emit(pair, 'Sell')
+      await expect(pair.sell(testData[0] + testData[5], wallet.address)).to.emit(pair, 'Sell')
       // close market with non-zero reserve
       await ethers.provider.send('evm_increaseTime', [86400])
       await ethers.provider.send('evm_mine', [])
