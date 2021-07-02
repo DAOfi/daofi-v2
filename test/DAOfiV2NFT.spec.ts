@@ -8,7 +8,7 @@ let wallet: SignerWithAddress
 let NFT: ContractFactory
 let nft: Contract
 
-describe.only('DAOfiV2NFT', async () => {
+describe('DAOfiV2NFT', async () => {
   let nft: Contract
 
   beforeEach(async () => {
