@@ -13,14 +13,14 @@ async function main() {
     wallet,
     DAOfiV2Pair,
     [
-      'Communifty Test NFT',
-      'TESTNFT',
-      'https://api.hodlink.io/4_20_21/',
+      'Karma DAO Test NFT',
+      'KARMADAO',
+      'https://communifty.mypinata.cloud/ipfs/QmPtyskMNEQGx1K1a7AFss6iCnM7YER1TXp9cvk6Jv8RcH/KarmaDAO_metadata/',
       process.env.PROXY || '0xf57b2c51ded3a29e6891aba85459d600256cf317',
       wallet.address,
-      100, // tokens
+      443, // tokens
       1, // start x
-      1e6, // m
+      1000, // m
       2, // n
       50, // fee
     ],
@@ -32,12 +32,12 @@ async function main() {
 
   console.log('Pair:', pair.address)
 
-  await pair.preMint(10, {
-    gasLimit: 8000000,
-    gasPrice: ethers.utils.parseUnits('20', 'gwei'),
-  })
+  // await pair.preMint(10, {
+  //   gasLimit: 8000000,
+  //   gasPrice: ethers.utils.parseUnits('20', 'gwei'),
+  // })
 
-  console.log('Preminted 10')
+  // console.log('Preminted 10')
 }
 
 main()

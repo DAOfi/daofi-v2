@@ -11,7 +11,7 @@ async function main() {
   console.log('Wallet:', wallet.address)
 
   const pair = new ethers.Contract(
-    process.env.PAIR || '0x891259E46db786C25CA7fd7dEb12fE57fE91869A',
+    process.env.PAIR || '0xe1E7F546a1de3744a0230C482ee0719D7B4EAa66',
     DAOfiV2Pair.abi,
     wallet
   )
@@ -23,7 +23,7 @@ async function main() {
   // replace tokenId with actual ID you are selling
   const sellTx = await pair.sell(1, wallet.address, {
     gasLimit: 8000000,
-    gasPrice: ethers.utils.parseUnits('200', 'gwei'),
+    gasPrice: ethers.utils.parseUnits('20', 'gwei'),
   })
 
   const sellResult = await sellTx.wait()
