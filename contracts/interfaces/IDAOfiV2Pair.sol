@@ -2,7 +2,7 @@
 pragma solidity =0.7.6;
 
 interface IDAOfiV2Pair {
-    event PreMint(uint256 amount);
+    event PreMint(uint256 amount, address _to);
     event SetPairOwner(address indexed sender, address indexed newOwner);
     event SignalClose(address indexed sender, uint256 deadline);
     event Close(address indexed sender, uint256 amount);
@@ -27,7 +27,7 @@ interface IDAOfiV2Pair {
     function close() external;
     function withdrawOwnerFees() external;
     function withdrawPlatformFees() external;
-    function preMint(uint256 count) external;
+    function preMint(uint256 count, address to) external;
     function buy(address payable to) external payable returns (uint256);
     function sell(uint256 tokenId, address payable to) external;
 }
