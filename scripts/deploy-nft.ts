@@ -32,7 +32,7 @@ async function main() {
 
   console.log('Pair:', pair.address)
 
-  // await pair.preMint(10, {
+  // await pair.preMint(10, wallet.address, {
   //   gasLimit: 8000000,
   //   gasPrice: ethers.utils.parseUnits('20', 'gwei'),
   // })
