@@ -13,12 +13,12 @@ async function main() {
     wallet,
     DAOfiV2Pair,
     [
-      'Karma DAO Test NFT',
-      'KARMADAO',
-      'https://communifty.mypinata.cloud/ipfs/QmPtyskMNEQGx1K1a7AFss6iCnM7YER1TXp9cvk6Jv8RcH/KarmaDAO_metadata/',
+      'Karma DAO',
+      'KARMA',
+      'https://communifty.mypinata.cloud/ipfs/QmSUa16ujtHGzYotUrwq5kN2ztLiqjapGKJihsAYhCSurn/karma_metadata/',
       process.env.PROXY || '0xf57b2c51ded3a29e6891aba85459d600256cf317',
       wallet.address,
-      443, // tokens
+      503, // tokens
       1, // start x
       1000, // m
       2, // n
