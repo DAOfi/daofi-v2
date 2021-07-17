@@ -5,12 +5,17 @@
 import "@nomiclabs/hardhat-waffle"
 
 export default {
+  networks: {
+    hardhat: {
+      blockGasLimit: 15e6
+    }
+  },
   paths: {
     artifacts: "./build",
   },
   solidity: "0.7.6",
   settings: {
-    evmVersion: "istanbul",
+    evmVersion: "berlin",
     optimizer: {
       enabled: true,
       runs: 200,

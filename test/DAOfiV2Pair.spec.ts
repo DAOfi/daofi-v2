@@ -62,23 +62,24 @@ describe('DAOfiV2Pair test all success and revert cases', () => {
     await expect(pair.preMint(10, wallet2.address)).to.be.revertedWith('MAX_SUPPLY')
     // successfully preMint
     await expect(pair.preMint(5, wallet2.address)).to.emit(pair, 'PreMint').withArgs(5, wallet2.address)
-    // double preMint
-    await expect(pair.preMint(5, wallet2.address)).to.be.revertedWith('MARKET_OPEN')
+    // successfully preMint again
+    await expect(pair.preMint(1, wallet2.address)).to.emit(pair, 'PreMint').withArgs(1, wallet2.address)
+    // successfully buy
+    const buyPrice = await pair.buyPrice()
+    await expect(pair.buy(wallet.address, { value: buyPrice })).to.emit(pair, 'Buy')
+    // Fail with market open
+    await expect(pair.preMint(1, wallet2.address)).to.be.revertedWith('MARKET_OPEN')
   })
 
-  it('will quantify gas cost for preMint', async () => {
+  it('will quantify upper limit preMint', async () => {
     // create normal pair
-    pair = await Pair.deploy(name, symbol, baseURI, proxy, wallet.address, ...defaults)
-    // successfully preMint 1
-    let tx = await pair.preMint(1, wallet.address)
+    const params = [...defaults]
+    params[0] = 503
+    pair = await Pair.deploy(name, symbol, baseURI, proxy, wallet.address, ...params)
+    // successfully preMint up to gas limit
+    let tx = await pair.preMint(130, wallet.address, { gasLimit: 15e6 })
     let receipt = await tx.wait()
-    expect(receipt.gasUsed).to.eq(197089)
-    // create normal pair
-    pair = await Pair.deploy(name, symbol, baseURI, proxy, wallet.address, ...defaults)
-    // successfully preMint 2
-    tx = await pair.preMint(2, wallet.address)
-    receipt = await tx.wait()
-    expect(receipt.gasUsed).to.eq(310541)
+    expect(receipt.gasUsed).to.eq(14834180)
   })
 
   it('will properly allow for switching pair owner and revert for bad params', async () => {

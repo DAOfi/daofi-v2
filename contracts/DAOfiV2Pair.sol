@@ -72,8 +72,8 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
 
     function preMint(uint256 _count, address _to) external override {
         require(msg.sender == pairOwner, 'OWNER_ONLY');
-        require(_count < maxSupply, 'MAX_SUPPLY');
-        require(totalSupply() == 0, 'MARKET_OPEN');
+        require(totalSupply() + _count < maxSupply, 'MAX_SUPPLY');
+        require(ethReserve == 0 && nftReservePool.length == 0, 'MARKET_OPEN');
         for (uint256 i = 0; i < _count; i++) {
             uint256 newTokenId = _getNextTokenId();
             _mint(_to, newTokenId);
