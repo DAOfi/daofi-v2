@@ -1,5 +1,5 @@
 readarray -d '' entries < <(printf '%s\0' *.mp4 | sort -zV)
-i=0
+i=1
 for entry in "${entries[@]}"; do
   # do something with $entry
   echo "$entry to $i.mp4"
