@@ -15,7 +15,7 @@ async function main() {
     [
       'Karma DAO',
       'KARMA',
-      'https://communifty.mypinata.cloud/ipfs/QmW1yDeip1coRtkoHutECRMSSrj5Pi7XiZpiaLBPsfx6KG/karma_metadata/',
+      'ipfs://QmRRkBgZh3H52BLfYh2ebG7ufERRw2dqidTJUkP6VtxYcs/karma_metadata/',
       process.env.PROXY || '0xf57b2c51ded3a29e6891aba85459d600256cf317',
       wallet.address,
       503, // tokens
