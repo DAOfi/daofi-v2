@@ -168,8 +168,6 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
 
     function buy(address payable _to) external payable override returns (uint256 tokenId) {
         require(closeDeadline == 0 || block.timestamp < closeDeadline, 'MARKET_CLOSED');
-        uint purchasePrice = buyPrice();
-        require(msg.value >= purchasePrice, 'INSUFFICIENT_FUNDS');
         uint basePrice = priceAtX(x);
         // Determine if we can sell a token id from the reserve pool
         if (nftReservePoolIndex < nftReservePool.length) {
@@ -184,11 +182,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
             _mint(_to, tokenId);
             _incrementTokenId();
         }
-        // Refund excess ETH
-        if (msg.value > purchasePrice) {
-            _to.transfer(msg.value.sub(purchasePrice));
-        }
-        // Divi up fees
+        // calculate fees,
         uint platformShare = basePrice.mul(platformFee).div(1000);
         uint ownerShare = basePrice.mul(ownerFee).div(1000);
         platformFees = platformFees.add(platformShare);
@@ -197,6 +191,13 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         ethReserve = ethReserve.add(basePrice);
         // Update X
         x = x + 1;
+        // check value vs purchase price, and refund if necessary
+        uint purchasePrice = basePrice.add(platformShare).add(ownerShare);
+        require(msg.value >= purchasePrice, 'INSUFFICIENT_FUNDS');
+        // Refund excess ETH
+        if (msg.value > purchasePrice) {
+            _to.transfer(msg.value.sub(purchasePrice));
+        }
         emit Buy(msg.sender, purchasePrice, tokenId, _to);
     }
 
@@ -205,16 +206,17 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
         require(x > 1, 'INVALID_X');
         uint salesPrice = priceAtX(x - 1);
         require(ethReserve >= salesPrice, 'INSUFFICIENT_RESERVE');
-         uint saleProceeds = sellPrice();
         // Send the token to this contract and add to reserve pool
         require(_isApprovedOrOwner(msg.sender, _tokenId), 'UNAPPROVED_SELL');
         _transfer(msg.sender, address(this), _tokenId);
         nftReservePool.push(_tokenId);
-        // Divi up fees
+        // Calculate fees
         uint platformShare = salesPrice.mul(platformFee).div(1000);
         uint ownerShare = salesPrice.mul(ownerFee).div(1000);
         platformFees = platformFees.add(platformShare);
         ownerFees = ownerFees.add(ownerShare);
+        // deduct fees from sales proceeds
+        uint saleProceeds = salesPrice.sub(platformShare).sub(ownerShare);
         // Transfer sale proceeds
         _to.transfer(saleProceeds);
         // Update ETH reserve
@@ -227,8 +229,9 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     function priceAtX(uint256 _x) public view returns (uint256) {
         return m.mul( (_x ** n).mul(10 ** 18) ).div(SLOPE_DENOM);
     }
+
     /**
-    * @dev Returns the current buy price of a single NFT
+    * @dev Returns the current buy price of a single NFT, including fees
     */
     function buyPrice() public view override returns (uint256) {
         uint256 basePrice = priceAtX(x);
@@ -238,7 +241,7 @@ contract DAOfiV2Pair is IDAOfiV2Pair, ERC721 {
     }
 
     /**
-    * @dev Returns the current sell price of a single NFT
+    * @dev Returns the current sell proceeds of a single NFT, including fees
     */
     function sellPrice() public view override returns (uint256) {
         uint256 basePrice = priceAtX(x - 1);

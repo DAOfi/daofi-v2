@@ -2,7 +2,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-wit
 import { expect } from 'chai'
 import { Contract, ContractFactory } from 'ethers'
 import { ethers } from 'hardhat'
-import { getPriceForXWithFees, getPriceForX } from './shared/utilities'
+import { getPriceForXWithFees, getPriceForX, expandTo18Decimals } from './shared/utilities'
 
 const zero = ethers.BigNumber.from(0)
 const proxy = '0xf57b2c51ded3a29e6891aba85459d600256cf317'
@@ -59,7 +59,7 @@ describe('DAOfiV2Pair test all success and revert cases', () => {
     // switch back to wallet1
     pair = await pair.connect(wallet)
     // fail max supply
-    await expect(pair.preMint(10, wallet2.address)).to.be.revertedWith('MAX_SUPPLY')
+    await expect(pair.preMint(11, wallet2.address)).to.be.revertedWith('MAX_SUPPLY')
     // successfully preMint
     await expect(pair.preMint(5, wallet2.address)).to.emit(pair, 'PreMint').withArgs(5, wallet2.address)
     // successfully preMint again
@@ -79,7 +79,7 @@ describe('DAOfiV2Pair test all success and revert cases', () => {
     // successfully preMint up to gas limit
     let tx = await pair.preMint(130, wallet.address, { gasLimit: 15e6 })
     let receipt = await tx.wait()
-    expect(receipt.gasUsed).to.eq(14834180)
+    expect(receipt.gasUsed).to.eq(14834183)
   })
 
   it('will properly allow for switching pair owner and revert for bad params', async () => {
@@ -221,8 +221,8 @@ describe('DAOfiV1Pair test curves with various settings', () => {
         const buyPrice = await pair.buyPrice()
         const calcPrice = getPriceForXWithFees(testData[1] + i, testData[2], testData[3], testData[4])
         expect(buyPrice).to.be.equal(ethers.BigNumber.from(calcPrice))
-        // buy
-        await expect(pair.buy(wallet2.address, { value: buyPrice })).to.emit(pair, 'Buy')
+        // buy with excess ETH
+        await expect(pair.buy(wallet2.address, { value: buyPrice.add(expandTo18Decimals(1)) })).to.emit(pair, 'Buy')
           .withArgs(wallet2.address, buyPrice, testData[5] + (i + 1), wallet2.address)
         // check total supply
         const totalSupply = await pair.totalSupply()
@@ -239,6 +239,8 @@ describe('DAOfiV1Pair test curves with various settings', () => {
         totalOwnerFees = totalOwnerFees.add(basePrice.mul(testData[4]).div(1000))
         expect(platformFees).to.be.equal(totalPlatfromFees)
         expect(ownerFees).to.be.equal(totalOwnerFees)
+        // check that the total ETH balance on the contract is equal to reserves and fees
+        expect(await wallet.provider?.getBalance(pair.address)).to.be.equal(totalEthReserve.add(totalPlatfromFees).add(totalOwnerFees))
       }
       // check wallet 2 owns the total supply
       const balance2 = await pair.balanceOf(wallet2.address)
@@ -264,20 +266,22 @@ describe('DAOfiV1Pair test curves with various settings', () => {
         totalOwnerFees = totalOwnerFees.add(basePrice.mul(testData[4]).div(1000))
         expect(platformFees).to.be.equal(totalPlatfromFees)
         expect(ownerFees).to.be.equal(totalOwnerFees)
+        // check that the total ETH balance on the contract is equal to reserves and fees
+        expect(await wallet.provider?.getBalance(pair.address)).to.be.equal(totalEthReserve.add(totalPlatfromFees).add(totalOwnerFees))
       }
-
-      // withdraw fees, check they are 0, and check eth reserve still intact
+      // check that reserve is 0, which verifies curve + fee math from equal buying vs selling
+      expect(await pair.ethReserve()).to.be.equal(zero)
+      // withdraw fees, check they are 0
       await expect(pair.withdrawOwnerFees()).to.emit(pair, 'WithdrawOwnerFees')
         .withArgs(wallet2.address, totalOwnerFees)
       expect(await pair.ownerFees()).to.be.equal(zero)
       await expect(pair.withdrawPlatformFees()).to.emit(pair, 'WithdrawPlatformFees')
         .withArgs(wallet2.address, totalPlatfromFees)
       expect(await pair.platformFees()).to.be.equal(zero)
-      expect(await pair.ethReserve()).to.be.equal(totalEthReserve)
       // signal close, allow for buy and sell
       pair = await pair.connect(wallet)
       await expect(pair.signalClose()).to.emit(pair, 'SignalClose')
-      // buy twice to have some resere on close
+      // buy twice and sell once to have some resere on close
       await expect(pair.buy(wallet.address, { value: await pair.buyPrice() })).to.emit(pair, 'Buy')
       await expect(pair.buy(wallet.address, { value: await pair.buyPrice() })).to.emit(pair, 'Buy')
       await expect(pair.sell(testData[5] + 1, wallet.address)).to.emit(pair, 'Sell')
