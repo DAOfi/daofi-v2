@@ -189,7 +189,8 @@ describe('DAOfiV1Pair test curves with various settings', () => {
   // max supply, init x, m, n, fee, pre mint
   const curveTestCases: any[][] = [
     [20, 1, 1, 1, 50, 10],
-    [20, 2, 1e3, 2, 50, 5]
+    [20, 2, 1e3, 2, 50, 5],
+    [30, 35, 1, 3, 10, 20]
   ]
 
   curveTestCases.forEach((testData, i) => {
@@ -271,13 +272,18 @@ describe('DAOfiV1Pair test curves with various settings', () => {
       }
       // check that reserve is 0, which verifies curve + fee math from equal buying vs selling
       expect(await pair.ethReserve()).to.be.equal(zero)
-      // withdraw fees, check they are 0
+      // withdraw owner fees, check they are 0
+      expect(await pair.ownerFees()).to.be.gt(zero)
       await expect(pair.withdrawOwnerFees()).to.emit(pair, 'WithdrawOwnerFees')
         .withArgs(wallet2.address, totalOwnerFees)
       expect(await pair.ownerFees()).to.be.equal(zero)
+      // withdraw platform fees, check they are 0
+      expect(await pair.platformFees()).to.be.gt(zero)
       await expect(pair.withdrawPlatformFees()).to.emit(pair, 'WithdrawPlatformFees')
         .withArgs(wallet2.address, totalPlatfromFees)
       expect(await pair.platformFees()).to.be.equal(zero)
+      // verify total balance on the contract is 0
+      expect(await wallet.provider?.getBalance(pair.address)).to.be.equal(zero)
       // signal close, allow for buy and sell
       pair = await pair.connect(wallet)
       await expect(pair.signalClose()).to.emit(pair, 'SignalClose')
@@ -299,6 +305,8 @@ describe('DAOfiV1Pair test curves with various settings', () => {
       expect(await pair.platformFees()).to.not.be.equal(zero)
       await expect(pair.withdrawPlatformFees()).to.emit(pair, 'WithdrawPlatformFees')
       expect(await pair.platformFees()).to.be.equal(zero)
+      // verify total balance on the contract is 0
+      expect(await wallet.provider?.getBalance(pair.address)).to.be.equal(zero)
     })
   })
 })
