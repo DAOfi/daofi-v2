@@ -30,7 +30,7 @@ async function main() {
     }
   )
 
-  //const pair = new Contract('0xc95A9691806C23365e4F12674A315AB08d2829Fa', DAOfiV2Pair.abi, wallet)
+  //const pair = new Contract('0xc95A9691806C23365e4F12674A315AB08d2829Fa', DAOfiV2Pair.abi, wallet) // Rinkeby
 
   console.log('Pair:', pair.address)
 
