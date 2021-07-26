@@ -9,6 +9,11 @@ async function main() {
   const wallet = new ethers.Wallet(process.env.PRIVATE_KEY || '', provider)
   console.log('Wallet:', wallet.address)
 
+  const owner = process.env.OWNER || wallet.address
+  const gas = process.env.GAS || '50'
+  console.log('Owner:', owner)
+  console.log('Gas:', gas)
+
   const pair = await deployContract(
     wallet,
     DAOfiV2Pair,
@@ -17,7 +22,7 @@ async function main() {
       'KARMA',
       'ipfs://QmRRkBgZh3H52BLfYh2ebG7ufERRw2dqidTJUkP6VtxYcs/karma_metadata/',
       process.env.PROXY || '0xf57b2c51ded3a29e6891aba85459d600256cf317',
-      wallet.address,
+      owner,
       503, // tokens
       50, // start x
       100, // m
@@ -26,7 +31,7 @@ async function main() {
     ],
     {
       gasLimit: 15000000,
-      gasPrice: ethers.utils.parseUnits('20', 'gwei'),
+      gasPrice: ethers.utils.parseUnits(gas, 'gwei'),
     }
   )
 
@@ -34,42 +39,42 @@ async function main() {
 
   console.log('Pair:', pair.address)
 
-  let tx = await pair.preMint(100, wallet.address, {
+  let tx = await pair.preMint(100, owner, {
     gasLimit: 15000000,
-    gasPrice: ethers.utils.parseUnits('20', 'gwei'),
+    gasPrice: ethers.utils.parseUnits(gas, 'gwei'),
+  })
+
+  await tx.wait()
+
+  tx = await pair.preMint(100, owner, {
+    gasLimit: 15000000,
+    gasPrice: ethers.utils.parseUnits(gas, 'gwei'),
+  })
+
+  await tx.wait()
+
+  tx = await pair.preMint(100, owner, {
+    gasLimit: 15000000,
+    gasPrice: ethers.utils.parseUnits(gas, 'gwei'),
   })
 
   await tx.wait()
 
   tx = await pair.preMint(100, wallet.address, {
     gasLimit: 15000000,
-    gasPrice: ethers.utils.parseUnits('20', 'gwei'),
+    gasPrice: ethers.utils.parseUnits(gas, 'gwei'),
   })
 
   await tx.wait()
 
-  tx = await pair.preMint(100, wallet.address, {
+  tx = await pair.preMint(65, owner, {
     gasLimit: 15000000,
-    gasPrice: ethers.utils.parseUnits('20', 'gwei'),
+    gasPrice: ethers.utils.parseUnits(gas, 'gwei'),
   })
 
   await tx.wait()
 
-  tx = await pair.preMint(100, wallet.address, {
-    gasLimit: 15000000,
-    gasPrice: ethers.utils.parseUnits('20', 'gwei'),
-  })
-
-  await tx.wait()
-
-  tx = await pair.preMint(65, wallet.address, {
-    gasLimit: 15000000,
-    gasPrice: ethers.utils.parseUnits('20', 'gwei'),
-  })
-
-  await tx.wait()
-
-  console.log('Pre-minted:', (await pair.balanceOf(wallet.address)).toNumber())
+  console.log('Pre-minted:', (await pair.balanceOf(owner)).toNumber())
 }
 
 main()
