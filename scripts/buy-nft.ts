@@ -13,7 +13,7 @@ async function main() {
   console.log('Wallet:', wallet.address)
 
   const pair = new ethers.Contract(
-    process.env.PAIR || '0xc95A9691806C23365e4F12674A315AB08d2829Fa',
+    process.env.PAIR || '0x72df4356B7723C45959dbE4A30B401d8Eb2997d2',
     DAOfiV2Pair.abi,
     wallet
   )
@@ -24,7 +24,7 @@ async function main() {
 
   const buyTx = await pair.buy(wallet.address, {
     gasLimit: 8000000,
-    gasPrice: ethers.utils.parseUnits('20', 'gwei'),
+    gasPrice: ethers.utils.parseUnits('50', 'gwei'),
     value: buyPrice,
   })
 
